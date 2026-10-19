@@ -7,7 +7,10 @@ import { NextUpCard } from "@/components/NextUpCard";
 import { TimelineEntryCard } from "@/components/TimelineEntryCard";
 import { ConnectionLine } from "@/components/ConnectionLine";
 import { InlineWarning, TripChecks } from "@/components/TripChecks";
-import { runTripChecks } from "@/lib/checks";
+import { runTripChecks, type TripWarning } from "@/lib/checks";
+import { baggageWarnings, summarizeBag } from "@/lib/baggage";
+import { customsReminders } from "@/lib/rules";
+import { TripTabs } from "@/components/TripTabs";
 import { ScrollToSaved } from "@/components/ScrollToSaved";
 import type { TimelineEntry } from "@/lib/timeline";
 
@@ -36,7 +39,20 @@ export default async function TripPage({
   const entries = buildTimeline(trip);
   const days = groupByDay(entries);
   const { next, current } = findNextUp(entries, now);
-  const { connections, warnings } = runTripChecks(trip);
+  const { connections, warnings: timelineWarnings } = runTripChecks(trip);
+  // Lists feed the same "Trip checks" panel: overweight bags and serious
+  // customs/airline problems (e.g. a power bank in the checked bag).
+  const listWarnings: TripWarning[] = [
+    ...baggageWarnings([summarizeBag(trip, trip.tasks, "CHECKED"), summarizeBag(trip, trip.tasks, "CABIN")]),
+    ...customsReminders(trip, trip.tasks)
+      .filter((r) => r.severity !== "INFO")
+      .map((r) => ({
+        id: `customs-${r.id}`, type: "CUSTOMS" as const, severity: r.severity, title: r.title,
+        detail: r.finding ?? r.detail, href: "lists",
+      })),
+  ];
+  const order = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+  const warnings = [...timelineWarnings, ...listWarnings].sort((a, b) => order[a.severity] - order[b.severity]);
   const connectionAfter = new Map(connections.map((c) => [c.fromLegId, c]));
 
   const buyLeft = trip.tasks.filter((t) => t.list === "BUY" && t.status === "TO_BUY").length;
@@ -58,6 +74,7 @@ export default async function TripPage({
         </p>
       </div>
 
+      <TripTabs tripId={trip.id} active="timeline" />
       <ScrollToSaved target={saved} />
       <NextUpCard next={next} current={current} now={now} isEmpty={entries.length === 0} />
 
@@ -66,8 +83,8 @@ export default async function TripPage({
       <dl className="grid grid-cols-4 gap-2 text-center">
         <Stat label="Legs" value={trip.legs.length} />
         <Stat label="Stays" value={trip.stays.length} />
-        <Stat label="To buy" value={buyLeft} />
-        <Stat label="To pack" value={packLeft} />
+        <Stat label="To buy" value={buyLeft} href={`/trips/${trip.id}/lists?tab=BUY`} />
+        <Stat label="To pack" value={packLeft} href={`/trips/${trip.id}/lists?tab=PACK`} />
       </dl>
 
       <section aria-label="Timeline" className="space-y-5">
@@ -137,11 +154,16 @@ function editLink(tripId: string, entry: TimelineEntry): string | null {
   return null;
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface py-2">
+function Stat({ label, value, href }: { label: string; value: number; href?: string }) {
+  const body = (
+    <>
       <dd className="text-lg font-semibold tabular-nums">{value}</dd>
       <dt className="text-[11px] text-muted">{label}</dt>
-    </div>
+    </>
+  );
+  return href ? (
+    <Link href={href} className="block rounded-xl border border-line bg-surface py-2">{body}</Link>
+  ) : (
+    <div className="rounded-xl border border-line bg-surface py-2">{body}</div>
   );
 }

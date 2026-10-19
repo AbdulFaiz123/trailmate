@@ -24,6 +24,7 @@ model Trip {
   name               String
   origin             String // "Berlin, Germany"
   destination        String // "Hyderabad, India"
+  originCountry      String? // ISO 3166 alpha-2, e.g. "DE" — customs rules for the way home
   destinationCountry String? // ISO 3166 alpha-2, e.g. "IN" — drives country rules
   // Calendar dates, not instants: "2026-11-12". A trip "starts on the 12th"
   // regardless of time zone, so we keep it as a plain date string.
@@ -32,9 +33,14 @@ model Trip {
   homeCurrency       String  @default("EUR")
   homeTimeZone       String  @default("Europe/Berlin")
 
-  // Baggage allowance (used in step 3)
-  checkedAllowanceG Int?
-  cabinAllowanceG   Int?
+  // Baggage (step 3). Allowance = what the airline lets you carry;
+  // tare = the empty suitcase / backpack itself.
+  checkedAllowanceG    Int?
+  cabinAllowanceG      Int?
+  checkedTareG         Int    @default(0)
+  cabinTareG           Int    @default(0)
+  // Suggestion ids from country-rules.json the traveler said "no thanks" to (JSON array)
+  dismissedSuggestions String @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -152,8 +158,9 @@ model Task {
   lat       Float?
   lng       Float?
 
-  notes     String?
-  sortOrder Int     @default(0)
+  notes        String?
+  sortOrder    Int     @default(0)
+  suggestionId String? // set when the item was added from a country suggestion
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

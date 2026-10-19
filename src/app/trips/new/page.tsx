@@ -12,7 +12,7 @@ export default async function NewTripPage() {
         <Link href="/" className="text-xs text-muted">← All trips</Link>
         <h1 className="mt-1 text-xl font-semibold">New trip</h1>
       </div>
-      <TripForm defaults={{ homeCurrency: "EUR", homeTimeZone: settings?.homeTimeZone ?? "Europe/Berlin" }} />
+      <TripForm defaults={{ originCountry: "DE", homeCurrency: "EUR", homeTimeZone: settings?.homeTimeZone ?? "Europe/Berlin" }} />
     </div>
   );
 }

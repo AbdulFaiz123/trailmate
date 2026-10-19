@@ -6,7 +6,7 @@ const STYLE: Record<Severity, { box: string; icon: string }> = {
   INFO: { box: "border-line bg-surface", icon: "ℹ️" },
 };
 
-export function TripChecks({ warnings, tripId }: { warnings: TripWarning[]; tripId: string }) {
+export function TripChecks({ warnings, tripId, title = "Trip checks" }: { warnings: TripWarning[]; tripId: string; title?: string }) {
   if (warnings.length === 0) {
     return (
       <p className="rounded-2xl border border-line bg-surface p-3 text-sm">
@@ -15,12 +15,16 @@ export function TripChecks({ warnings, tripId }: { warnings: TripWarning[]; trip
     );
   }
   return (
-    <section aria-label="Trip checks" className="space-y-2">
-      <h2 className="text-sm font-semibold">Trip checks · {warnings.length}</h2>
+    <section aria-label={title} className="space-y-2">
+      <h2 className="text-sm font-semibold">{title} · {warnings.length}</h2>
       <ul className="space-y-2">
         {warnings.map((w) => {
           const s = STYLE[w.severity];
-          const href = w.itemKind ? `/trips/${tripId}#${w.itemKind.toLowerCase()}-${w.itemId}` : undefined;
+          const href = w.href
+            ? `/trips/${tripId}/${w.href}`
+            : w.itemKind
+              ? `/trips/${tripId}#${w.itemKind.toLowerCase()}-${w.itemId}`
+              : undefined;
           const body = (
             <>
               <p className="text-sm font-medium">

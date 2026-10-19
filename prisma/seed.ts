@@ -32,6 +32,7 @@ async function main() {
       name: "Family visit to Hyderabad",
       origin: "Berlin, Germany",
       destination: "Hyderabad, India",
+      originCountry: "DE",
       destinationCountry: "IN",
       startDate: D0,
       endDate: d(14),
@@ -39,6 +40,8 @@ async function main() {
       homeTimeZone: BER,
       checkedAllowanceG: 23_000, // Lufthansa Economy: 1 x 23 kg
       cabinAllowanceG: 8_000,
+      checkedTareG: 4_200, // empty 70 cm hard-shell suitcase
+      cabinTareG: 2_300, // empty cabin trolley
     },
   });
   const tripId = trip.id;
@@ -202,9 +205,9 @@ async function main() {
       { tripId, list: "BUY", name: "Perfume", quantity: 1, category: "GIFTS", status: "TO_BUY", personId: mom.id, weightG: 350, priceMinor: 6500, currency: "EUR", bag: "CHECKED", buyBy: buyBy(3), sortOrder: 2 },
       { tripId, list: "BUY", name: "Wrist watch", quantity: 1, category: "GIFTS", status: "BOUGHT", personId: dad.id, weightG: 200, priceMinor: 12000, currency: "EUR", bag: "CABIN", sortOrder: 3 },
       { tripId, list: "BUY", name: "Haribo Goldbären", quantity: 5, category: "FOOD", status: "TO_BUY", personId: nephew.id, weightG: 200, priceMinor: 129, currency: "EUR", bag: "CHECKED", buyBy: buyBy(1), sortOrder: 4 },
-      { tripId, list: "BUY", name: "India power adapter (Type D/M)", quantity: 2, category: "ELECTRONICS", status: "TO_BUY", weightG: 80, priceMinor: 1299, currency: "EUR", bag: "CABIN", buyBy: buyBy(4), sortOrder: 5 },
-      { tripId, list: "BUY", name: "Rupee cash (≈ €150)", quantity: 1, category: "OTHER", status: "TO_BUY", weightG: 10, bag: "CABIN", buyBy: buyBy(2), notes: "Exchange at Reisebank or withdraw at HYD arrivals", sortOrder: 6 },
-      { tripId, list: "BUY", name: "Mosquito repellent", quantity: 1, category: "MEDICINE", status: "TO_BUY", weightG: 150, priceMinor: 799, currency: "EUR", bag: "CHECKED", buyBy: buyBy(1), sortOrder: 7 },
+      { tripId, list: "BUY", name: "India power adapter (Type D/M)", quantity: 2, category: "ELECTRONICS", status: "TO_BUY", weightG: 80, priceMinor: 1299, currency: "EUR", bag: "CABIN", buyBy: buyBy(4), suggestionId: "IN.adapter", sortOrder: 5 },
+      { tripId, list: "BUY", name: "Rupee cash (≈ €150)", quantity: 1, category: "OTHER", status: "TO_BUY", weightG: 10, bag: "CABIN", buyBy: buyBy(2), suggestionId: "IN.cash", notes: "Exchange at Reisebank or withdraw at HYD arrivals", sortOrder: 6 },
+      { tripId, list: "BUY", name: "Mosquito repellent", quantity: 1, category: "MEDICINE", status: "TO_BUY", weightG: 150, priceMinor: 799, currency: "EUR", bag: "CHECKED", buyBy: buyBy(1), suggestionId: "IN.repellent", sortOrder: 7 },
 
       // PACK — things I already own
       { tripId, list: "PACK", name: "Passport + e-Visa printout", quantity: 1, category: "DOCUMENTS", status: "TODO", weightG: 60, bag: "CABIN", sortOrder: 1 },

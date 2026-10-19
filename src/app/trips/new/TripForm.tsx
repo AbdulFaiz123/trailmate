@@ -25,9 +25,14 @@ export function TripForm({ defaults }: { defaults: Record<string, string> }) {
           <input name="destination" defaultValue={v.destination} placeholder="Hyderabad, India" className={input} />
         </Field>
       </div>
-      <Field label="Destination country code" hint="Used for packing suggestions (step 3)" error={err.destinationCountry}>
-        <input name="destinationCountry" defaultValue={v.destinationCountry} placeholder="IN" maxLength={2} className={`${input} uppercase`} />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Home country" hint="Customs on the way back" error={err.originCountry}>
+          <input name="originCountry" defaultValue={v.originCountry} placeholder="DE" maxLength={2} className={`${input} uppercase`} />
+        </Field>
+        <Field label="Destination country" hint="Packing suggestions" error={err.destinationCountry}>
+          <input name="destinationCountry" defaultValue={v.destinationCountry} placeholder="IN" maxLength={2} className={`${input} uppercase`} />
+        </Field>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Start date" error={err.startDate}>
           <input type="date" name="startDate" defaultValue={v.startDate} className={input} />

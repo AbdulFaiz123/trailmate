@@ -59,3 +59,17 @@ export function newStayDefaults(trip: Trip, stays: Stay[], legs: Leg[]): Record<
     checkIn: `${day}T15:00`, checkOut: `${nextDay}T11:00`,
   };
 }
+
+export function taskToForm(
+  task: import("@prisma/client").Task & { person: import("@prisma/client").Person | null },
+  homeTimeZone: string,
+): Record<string, string> {
+  return {
+    list: task.list, name: task.name, quantity: String(task.quantity), category: task.category ?? "OTHER",
+    status: task.status, person: task.person?.name ?? "", bag: task.bag ?? "NONE",
+    weightG: task.weightG != null ? String(task.weightG) : "",
+    price: money(task.priceMinor), currency: task.currency ?? "",
+    buyBy: task.buyBy ? localDateKey(task.buyBy, homeTimeZone) : "",
+    notes: task.notes ?? "",
+  };
+}

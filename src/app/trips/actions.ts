@@ -12,6 +12,12 @@ const TripInput = z
     name: z.string().trim().min(1, "Give the trip a name").max(80),
     origin: z.string().trim().min(1, "Where do you start?"),
     destination: z.string().trim().min(1, "Where are you going?"),
+    originCountry: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^([A-Z]{2})?$/, "Use a 2-letter country code, e.g. DE")
+      .transform((v) => v || null),
     destinationCountry: z
       .string()
       .trim()
@@ -40,5 +46,6 @@ export async function createTrip(_prev: FormState, formData: FormData): Promise<
   }
 
   const trip = await prisma.trip.create({ data: parsed.data });
-  redirect(`/trips/${trip.id}`);
+  // Land on the Buy list so the destination's suggestions are the first thing you see.
+  redirect(`/trips/${trip.id}/lists?tab=BUY`);
 }

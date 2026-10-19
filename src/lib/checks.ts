@@ -12,12 +12,15 @@ export type Severity = "INFO" | "WARNING" | "CRITICAL";
 
 export type TripWarning = {
   id: string; // stable, so the UI (and later, alerts) can de-duplicate
-  type: "GAP" | "OVERLAP" | "LATE_ARRIVAL" | "EARLY_ARRIVAL" | "TIGHT_CONNECTION" | "BROKEN_CONNECTION";
+  type:
+    | "GAP" | "OVERLAP" | "LATE_ARRIVAL" | "EARLY_ARRIVAL" | "TIGHT_CONNECTION" | "BROKEN_CONNECTION"
+    | "BAG_OVER" | "BAG_NEAR" | "CUSTOMS";
   severity: Severity;
   title: string;
   detail: string;
   itemKind?: "LEG" | "STAY";
   itemId?: string;
+  href?: string; // where to go to fix it, when it isn't a timeline item
 };
 
 export type Connection = {
