@@ -6,7 +6,7 @@
 // `departureDelayMin` / `arrivalDelayMin`, and we run the checks again.
 import type { Dependency, Leg, Stay } from "@prisma/client";
 import { addDays } from "date-fns";
-import { formatDay, formatDuration, formatTime, localToUtc, tzAbbrev, utcOffsetLabel } from "./time";
+import { formatDay, formatDuration, formatTime, localDateKey, localToUtc, tzAbbrev, utcOffsetLabel } from "./time";
 
 export type Severity = "INFO" | "WARNING" | "CRITICAL";
 
@@ -98,6 +98,26 @@ function findDependency(deps: DepLike[], fromKind: string, fromId: string, toKin
   return deps.find((d) => d.fromKind === fromKind && d.fromId === fromId && d.toKind === toKind && d.toId === toId);
 }
 
+/**
+ * Is there a stay between leg A arriving and leg B leaving? Either a check-in
+ * falls in the gap, or the gap spans a night (02:00 where you are) that a stay
+ * covers — e.g. you reach the hotel at 22:00 although check-in opened at 15:00.
+ * A stay you're just leaving (checkout after a short gap) doesn't count: the
+ * gap must contain the night, not just overlap the stay.
+ */
+function stayBetween(a: LegLike, b: LegLike, stays: StayLike[]): boolean {
+  const from = effectiveArrival(a);
+  const to = effectiveDeparture(b);
+  if (stays.some((s) => s.checkInAt >= a.arrivalAt && s.checkInAt <= b.departureAt)) return true;
+  const nights: Date[] = [];
+  // 02:00 on every local date from the arrival day to the departure day.
+  for (let day = from; day.getTime() <= to.getTime() + 24 * HOUR; day = new Date(day.getTime() + 24 * HOUR)) {
+    const t = localToUtc(localDateKey(day, a.toTimeZone), "02:00", a.toTimeZone);
+    if (t > from && t < to) nights.push(t);
+  }
+  return nights.some((t) => stays.some((s) => s.checkInAt <= t && s.checkOutAt > t));
+}
+
 /** Pair up consecutive legs and measure each transfer. */
 export function findConnections(legs: LegLike[], stays: StayLike[], deps: DepLike[] = []): Connection[] {
   const sorted = [...legs].sort((x, y) => x.departureAt.getTime() - y.departureAt.getTime());
@@ -112,8 +132,7 @@ export function findConnections(legs: LegLike[], stays: StayLike[], deps: DepLik
 
     // Not a connection if there is a long gap or a night at a stay in between,
     // unless the user explicitly linked them with a Dependency.
-    const stayBetween = stays.some((s) => s.checkInAt >= a.arrivalAt && s.checkInAt <= b.departureAt);
-    if (!dependency && (dep.getTime() - arr.getTime() > CONNECTION_WINDOW_MS || stayBetween)) continue;
+    if (!dependency && (dep.getTime() - arr.getTime() > CONNECTION_WINDOW_MS || stayBetween(a, b, stays))) continue;
 
     const transferMin = Math.round((dep.getTime() - arr.getTime()) / MIN);
     const { tightMin, requiredMin } = transferRules(a, b, dependency);
@@ -247,14 +266,13 @@ function describeNights(run: { first: Night; last: Night; count: number }): stri
 }
 
 /** Find the leg that brings you to a stay. */
-function arrivalLegFor(stay: StayLike, legs: LegLike[], deps: DepLike[]): LegLike | undefined {
+function arrivalLegFor(stay: StayLike, legs: LegLike[], deps: DepLike[], stopovers: Set<string>): LegLike | undefined {
   const linked = deps.find((d) => d.toKind === "STAY" && d.toId === stay.id && d.fromKind === "LEG");
   if (linked) return legs.find((l) => l.id === linked.fromId);
   // Fallback: the first leg that arrives between 18 h before check-in and
   // check-out. Legs later in the stay (day trips) are ignored, and so are
   // stopovers: a leg followed by a connecting leg (landing in Dubai on the way
   // to Goa) isn't where you arrive.
-  const stopovers = new Set(findConnections(legs, [stay], deps).map((c) => c.fromLegId));
   return [...legs]
     .filter((l) => !stopovers.has(l.id))
     .filter((l) => l.arrivalAt <= stay.checkOutAt && l.arrivalAt.getTime() >= stay.checkInAt.getTime() - 18 * HOUR)
@@ -263,8 +281,10 @@ function arrivalLegFor(stay: StayLike, legs: LegLike[], deps: DepLike[]): LegLik
 
 export function checkStayArrivals(stays: StayLike[], legs: LegLike[], deps: DepLike[] = []): TripWarning[] {
   const warnings: TripWarning[] = [];
+  // Computed once, with all stays, so a night at another hotel ends a journey.
+  const stopovers = new Set(findConnections(legs, stays, deps).map((c) => c.fromLegId));
   for (const stay of stays) {
-    const leg = arrivalLegFor(stay, legs, deps);
+    const leg = arrivalLegFor(stay, legs, deps, stopovers);
     if (!leg) continue;
     const arr = effectiveArrival(leg);
     const at = (d: Date) => `${formatTime(d, stay.timeZone)} ${tzAbbrev(d, stay.timeZone)}`;

@@ -31,9 +31,16 @@ export async function createTripFromImport(tripFields: Record<string, string>, i
   const created = await prisma.trip.create({ data: trip.data });
   // A file can only be stored once its trip exists, so the review screen
   // uploads the original ticket after this returns, attached to `focus`.
-  const saved = await saveImport(created.id, { ...parsed.data, documentId: null });
+  // A leg failing its checks, or a write failing, must not leave an empty
+  // trip behind: remove it again (its rows, if any, go with it).
+  let saved: Awaited<ReturnType<typeof saveImport>>;
+  try {
+    saved = await saveImport(created.id, { ...parsed.data, documentId: null });
+  } catch (e) {
+    await prisma.trip.delete({ where: { id: created.id } }).catch(() => {});
+    throw e;
+  }
   if (!saved.ok) {
-    // A leg failed its checks: don't leave a half-made trip behind.
     await prisma.trip.delete({ where: { id: created.id } });
     return saved;
   }

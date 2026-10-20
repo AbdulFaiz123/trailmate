@@ -6,6 +6,9 @@ import { guessCategory } from "@/lib/categorize";
 import type { ParsedImportPayload } from "@/lib/import/payload";
 import { personIdFor } from "./people";
 
+type LegRow = Extract<ParsedImportPayload["legs"][number], { mode: string }>;
+type StayRow = Extract<ParsedImportPayload["stays"][number], { kind: string }>;
+
 export type ApplyResult = { ok: true; summary: string; focus: string | null } | { ok: false; error: string; field?: string };
 
 const minor = (p: number | null) => (p == null ? null : Math.round(p * 100));
@@ -15,7 +18,7 @@ export async function saveImport(tripId: string, p: ParsedImportPayload): Promis
   if (!trip) return { ok: false, error: "Trip not found" };
 
   // Validate times first, so we either save everything or nothing.
-  const legs = [];
+  const legs: { l: LegRow; departureAt: Date; arrivalAt: Date }[] = [];
   for (const [i, l] of p.legs.entries()) {
     if (!l.include || !("mode" in l)) continue;
     const departureAt = fromLocalInput(l.departureLocal, l.fromTimeZone);
@@ -23,7 +26,7 @@ export async function saveImport(tripId: string, p: ParsedImportPayload): Promis
     if (arrivalAt <= departureAt) return { ok: false, error: `${l.number ?? `Leg ${i + 1}`}: arrival is before departure.`, field: `legs.${i}` };
     legs.push({ l, departureAt, arrivalAt });
   }
-  const stays = [];
+  const stays: { st: StayRow; checkInAt: Date; checkOutAt: Date; latestCheckInAt: Date | null }[] = [];
   for (const [i, st] of p.stays.entries()) {
     if (!st.include || !("kind" in st)) continue;
     const checkInAt = fromLocalInput(st.checkInLocal, st.timeZone);
@@ -36,61 +39,65 @@ export async function saveImport(tripId: string, p: ParsedImportPayload): Promis
   let focus: string | null = null;
   let attachTo: { kind: "LEG" | "STAY"; id: string } | null = null;
 
-  for (const { l, departureAt, arrivalAt } of legs) {
-    const leg = await prisma.leg.create({
-      data: {
-        tripId, mode: l.mode, fromName: l.fromName, toName: l.toName, fromTimeZone: l.fromTimeZone, toTimeZone: l.toTimeZone,
-        departureAt, arrivalAt, carrier: l.carrier, number: l.number, bookingRef: l.bookingRef, platform: l.platform, seat: l.seat,
-        costMinor: minor(l.price), currency: l.price != null ? (l.currency ?? trip.homeCurrency) : null,
-        notes: "Added by smart import",
-      },
-    });
-    created.legs++;
-    focus ??= `leg-${leg.id}`;
-    attachTo ??= { kind: "LEG", id: leg.id };
-  }
-  for (const { st, checkInAt, checkOutAt, latestCheckInAt } of stays) {
-    const stay = await prisma.stay.create({
-      data: {
-        tripId, kind: st.kind, name: st.name, address: st.address, timeZone: st.timeZone, checkInAt, checkOutAt, latestCheckInAt,
-        bookingRef: st.bookingRef, costMinor: minor(st.price), currency: st.price != null ? (st.currency ?? trip.homeCurrency) : null,
-        notes: "Added by smart import",
-      },
-    });
-    created.stays++;
-    focus ??= `stay-${stay.id}`;
-    attachTo ??= { kind: "STAY", id: stay.id };
-  }
-  for (const it of p.items) {
-    if (!it.include) continue;
-    await prisma.task.create({
-      data: {
-        tripId, list: it.list, name: it.name, quantity: it.quantity, category: it.category ?? guessCategory(it.name),
-        status: it.list === "BUY" ? "TO_BUY" : "TODO", bag: "CHECKED", personId: await personIdFor(tripId, it.person),
-        priceMinor: minor(it.price), currency: it.price != null ? (it.currency ?? trip.homeCurrency) : null,
-      },
-    });
-    created.items++;
-  }
-  for (const pu of p.purchases) {
-    if (pu.action === "IGNORE") continue;
-    const priceData = { priceMinor: minor(pu.unitPrice), currency: pu.unitPrice != null ? (pu.currency ?? trip.homeCurrency) : null };
-    if (pu.action === "MARK" && pu.taskId) {
-      const task = await prisma.task.findUnique({ where: { id: pu.taskId, tripId } });
-      if (!task) continue;
-      await prisma.task.update({ where: { id: task.id }, data: { status: task.status === "PACKED" ? "PACKED" : "BOUGHT", ...(pu.unitPrice != null ? priceData : {}) } });
-    } else {
-      await prisma.task.create({
-        data: { tripId, list: "BUY", name: pu.name, quantity: pu.quantity, category: guessCategory(pu.name), status: "BOUGHT", bag: "CHECKED", ...priceData },
+  // One transaction: if any write fails, none of them happened, so pressing
+  // Save again can't create duplicates.
+  await prisma.$transaction(async (tx) => {
+    for (const { l, departureAt, arrivalAt } of legs) {
+      const leg = await tx.leg.create({
+        data: {
+          tripId, mode: l.mode, fromName: l.fromName, toName: l.toName, fromTimeZone: l.fromTimeZone, toTimeZone: l.toTimeZone,
+          departureAt, arrivalAt, carrier: l.carrier, number: l.number, bookingRef: l.bookingRef, platform: l.platform, seat: l.seat,
+          costMinor: minor(l.price), currency: l.price != null ? (l.currency ?? trip.homeCurrency) : null,
+          notes: "Added by smart import",
+        },
       });
+      created.legs++;
+      focus ??= `leg-${leg.id}`;
+      attachTo ??= { kind: "LEG", id: leg.id };
     }
-    created.bought++;
-  }
+    for (const { st, checkInAt, checkOutAt, latestCheckInAt } of stays) {
+      const stay = await tx.stay.create({
+        data: {
+          tripId, kind: st.kind, name: st.name, address: st.address, timeZone: st.timeZone, checkInAt, checkOutAt, latestCheckInAt,
+          bookingRef: st.bookingRef, costMinor: minor(st.price), currency: st.price != null ? (st.currency ?? trip.homeCurrency) : null,
+          notes: "Added by smart import",
+        },
+      });
+      created.stays++;
+      focus ??= `stay-${stay.id}`;
+      attachTo ??= { kind: "STAY", id: stay.id };
+    }
+    for (const it of p.items) {
+      if (!it.include) continue;
+      await tx.task.create({
+        data: {
+          tripId, list: it.list, name: it.name, quantity: it.quantity, category: it.category ?? guessCategory(it.name),
+          status: it.list === "BUY" ? "TO_BUY" : "TODO", bag: "CHECKED", personId: await personIdFor(tripId, it.person, tx),
+          priceMinor: minor(it.price), currency: it.price != null ? (it.currency ?? trip.homeCurrency) : null,
+        },
+      });
+      created.items++;
+    }
+    for (const pu of p.purchases) {
+      if (pu.action === "IGNORE") continue;
+      const priceData = { priceMinor: minor(pu.unitPrice), currency: pu.unitPrice != null ? (pu.currency ?? trip.homeCurrency) : null };
+      if (pu.action === "MARK" && pu.taskId) {
+        const task = await tx.task.findUnique({ where: { id: pu.taskId, tripId } });
+        if (!task) continue;
+        await tx.task.update({ where: { id: task.id }, data: { status: task.status === "PACKED" ? "PACKED" : "BOUGHT", ...(pu.unitPrice != null ? priceData : {}) } });
+      } else {
+        await tx.task.create({
+          data: { tripId, list: "BUY", name: pu.name, quantity: pu.quantity, category: guessCategory(pu.name), status: "BOUGHT", bag: "CHECKED", ...priceData },
+        });
+      }
+      created.bought++;
+    }
 
-  // The original ticket/receipt was uploaded to the vault; link it to what it created.
-  if (p.documentId && attachTo) {
-    await prisma.document.updateMany({ where: { id: p.documentId, tripId }, data: { itemKind: attachTo.kind, itemId: attachTo.id } });
-  }
+    // The original ticket/receipt was uploaded to the vault; link it to what it created.
+    if (p.documentId && attachTo) {
+      await tx.document.updateMany({ where: { id: p.documentId, tripId }, data: { itemKind: attachTo.kind, itemId: attachTo.id } });
+    }
+  });
 
   revalidatePath(`/trips/${tripId}`, "layout");
   const parts = [
