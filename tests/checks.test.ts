@@ -127,3 +127,21 @@ test("arrival at a stay ignores stopovers (Munich -> Dubai -> Goa)", () => {
   assert.equal(w.type, "EARLY_ARRIVAL");
   assert.match(w.detail, /You arrive 07:45 IST/, "the Goa landing, not the Dubai stopover");
 });
+
+test("a hotel night ends the journey even when check-in opened before you arrived", () => {
+  // Arrive 22:00, hotel check-in from 15:00 (latest 21:00), next train 08:00.
+  const a = leg({ number: "IC 2027", dep: t("2026-11-01", "18:00"), arr: t("2026-11-01", "22:00") });
+  const b = leg({ number: "ICE 1001", dep: t("2026-11-02", "08:00"), arr: t("2026-11-02", "12:00") });
+  const hotel = stay({ name: "City Hotel", tz: BER, inAt: t("2026-11-01", "15:00"), latest: t("2026-11-01", "21:00"), outAt: t("2026-11-02", "11:00") });
+  assert.equal(findConnections([a, b], [hotel]).length, 0, "not a 10-hour 'transfer'");
+  const [w] = checkStayArrivals([hotel], [a, b]);
+  assert.equal(w?.type, "LATE_ARRIVAL", "the arriving train is found, so the late check-in is caught");
+});
+
+test("leaving your hotel early for a short change is still a connection", () => {
+  // Staying until 11:00 checkout, but on the 08:00 tram and the 09:30 train.
+  const hotel = stay({ name: "City Hotel", tz: BER, inAt: t("2026-11-01", "15:00"), outAt: t("2026-11-02", "11:00") });
+  const tram = leg({ mode: "BUS", dep: t("2026-11-02", "08:00"), arr: t("2026-11-02", "08:40") });
+  const train = leg({ number: "ICE 1001", dep: t("2026-11-02", "09:30"), arr: t("2026-11-02", "13:00") });
+  assert.equal(findConnections([tram, train], [hotel]).length, 1);
+});
