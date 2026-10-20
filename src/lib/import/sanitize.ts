@@ -13,6 +13,8 @@ const local = (s: unknown) => (typeof s === "string" && LOCAL.test(s.trim().slic
 const money = (n: unknown) => (typeof n === "number" && Number.isFinite(n) && n >= 0 && n < 1e7 ? Math.round(n * 100) / 100 : null);
 const ccy = (s: unknown) => (typeof s === "string" && /^[A-Za-z]{3}$/.test(s.trim()) ? s.trim().toUpperCase() : null);
 const qty = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? Math.min(999, Math.max(1, Math.round(n))) : 1);
+/** "auntie" -> "Auntie", "mom" -> "Mom" (keeps "McKenzie" as written). */
+const titleCase = (s: string | null) => (s && s === s.toLowerCase() ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T) => (allowed.includes(v as T) ? (v as T) : fallback);
 
 function zone(raw: unknown, place: string): string | null {
@@ -69,12 +71,13 @@ export function sanitizeDraft(raw: Partial<ImportDraft> | null | undefined, exis
     name: clip(i?.name, 120) || "Item",
     quantity: qty(i?.quantity),
     category: i?.category && ["GIFTS", "ELECTRONICS", "CLOTHES", "DOCUMENTS", "TOILETRIES", "MEDICINE", "FOOD", "OTHER"].includes(i.category) ? i.category : null,
-    person: nclip(i?.person, 60),
+    person: titleCase(nclip(i?.person, 60)),
     price: money(i?.price), currency: ccy(i?.currency),
   }));
 
   const purchases = (Array.isArray(raw?.purchases) ? raw!.purchases : []).slice(0, 40).map((p) => ({
     name: clip(p?.name, 120) || "Item", quantity: qty(p?.quantity), totalPrice: money(p?.totalPrice), currency: ccy(p?.currency),
+    buyListItem: nclip(p?.buyListItem, 120),
   }));
 
   return {

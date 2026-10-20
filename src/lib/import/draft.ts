@@ -50,7 +50,14 @@ export type DraftItem = {
 };
 
 /** One line from a shop receipt. */
-export type DraftPurchase = { name: string; quantity: number; totalPrice: number | null; currency: string | null };
+export type DraftPurchase = {
+  name: string;
+  quantity: number;
+  totalPrice: number | null;
+  currency: string | null;
+  /** The Buy-list item this line is, by meaning ("Anti Brumm" -> "Mosquito repellent"), as the parser judged it. */
+  buyListItem: string | null;
+};
 
 export type ImportDraft = {
   kind: "booking" | "receipt" | "notes" | "unknown";
@@ -120,7 +127,11 @@ export const DRAFT_JSON_SCHEMA = obj({
   purchases: {
     type: "array",
     description: "Lines from a shop receipt: what was bought.",
-    items: obj({ name: str, quantity: { type: "integer" }, totalPrice: nnum, currency: nstr }),
+    items: obj({
+      name: { ...str, description: "Product name, abbreviations expanded (VOLLM -> Vollmilch)" },
+      quantity: { type: "integer" }, totalPrice: nnum, currency: nstr,
+      buyListItem: { ...nstr, description: "If this product is one of the Buy list items from the trip context (by meaning, e.g. a brand of mosquito repellent), that item's exact name. Otherwise null." },
+    }),
   },
   shopName: nstr,
   warnings: { type: "array", items: str, description: "Anything unclear the traveler should double-check." },

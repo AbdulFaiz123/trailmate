@@ -81,7 +81,14 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
         fd.set("tripId", tripId);
         fd.set("file", source);
         fd.set("kind", result?.draft.kind === "receipt" ? "OTHER" : legs.some((l) => l.include) ? "TICKET" : "BOOKING");
-        fd.set("title", result?.draft.summary.slice(0, 120) || source.name);
+        const d = result?.draft;
+        const firstLeg = legs.find((l) => l.include);
+        const firstStay = stays.find((x) => x.include);
+        fd.set("title",
+          d?.kind === "receipt" ? `Receipt${d.shopName ? ` · ${d.shopName}` : ""}`
+          : firstLeg ? `${firstLeg.number ?? firstLeg.mode.toLowerCase()} ${firstLeg.fromName} → ${firstLeg.toName}`.slice(0, 120)
+          : firstStay ? `Booking · ${firstStay.name}`.slice(0, 120)
+          : source.name.replace(/\.[^.]+$/, ""));
         const up = await fetch("/api/documents", { method: "POST", body: fd });
         if (up.ok) documentId = ((await up.json()) as { id: string }).id;
       }

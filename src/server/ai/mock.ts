@@ -92,9 +92,9 @@ export const DEMOS = {
     summary: "Demo receipt from a supermarket (sample data).",
     shopName: "Supermarket, Berlin-Kreuzberg (demo)",
     purchases: [
-      { name: "RITTER SPORT VOLLMILCH 100G", quantity: 10, totalPrice: 14.9, currency: "EUR" },
-      { name: "HARIBO GOLDBAEREN 200G", quantity: 5, totalPrice: 6.45, currency: "EUR" },
-      { name: "ZAHNPASTA SENSITIVE 75ML", quantity: 1, totalPrice: 1.95, currency: "EUR" },
+      { name: "RITTER SPORT VOLLMILCH 100G", quantity: 10, totalPrice: 14.9, currency: "EUR", buyListItem: null },
+      { name: "HARIBO GOLDBAEREN 200G", quantity: 5, totalPrice: 6.45, currency: "EUR", buyListItem: null },
+      { name: "ZAHNPASTA SENSITIVE 75ML", quantity: 1, totalPrice: 1.95, currency: "EUR", buyListItem: null },
     ],
   }),
   voice: (): string => "I need to buy 2 power adapters for Dad. Pack my sunglasses. On the 9th I take the train from Hyderabad to Vijayawada at 07:10, arriving 12:40.",

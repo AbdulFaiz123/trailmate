@@ -37,10 +37,17 @@ export function similarity(a: string, b: string): number {
 
 export const MATCH_THRESHOLD = 0.5;
 
-/** Best Buy-list item for each receipt line; each task is used at most once. */
+/**
+ * Best Buy-list item for each receipt line; each task is used at most once.
+ * If the parser named the Buy item a line is (it understands brands: "Anti
+ * Brumm" is a mosquito repellent), that wins; otherwise word overlap decides.
+ */
 export function matchPurchases(purchases: DraftPurchase[], tasks: BuyTask[]): PurchaseMatch[] {
   const open = tasks.filter((t) => t.list === "BUY" && t.status === "TO_BUY");
-  const candidates = purchases.flatMap((p, i) => open.map((t) => ({ i, t, score: similarity(p.name, t.name) })));
+  const norm = (s: string) => s.trim().toLowerCase();
+  const candidates = purchases.flatMap((p, i) =>
+    open.map((t) => ({ i, t, score: p.buyListItem && norm(p.buyListItem) === norm(t.name) ? 1.01 : similarity(p.name, t.name) })),
+  );
   candidates.sort((x, y) => y.score - x.score);
 
   const usedTask = new Set<string>();
@@ -57,7 +64,7 @@ export function matchPurchases(purchases: DraftPurchase[], tasks: BuyTask[]): Pu
       purchaseIndex: i,
       taskId: m?.t.id ?? null,
       taskName: m?.t.name ?? null,
-      score: m?.score ?? 0,
+      score: Math.min(1, m?.score ?? 0),
       unitPrice: p.totalPrice != null && p.quantity > 0 ? Math.round((p.totalPrice / p.quantity) * 100) / 100 : null,
     };
   });

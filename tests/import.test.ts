@@ -189,3 +189,16 @@ test("mock: Indian 5-digit train numbers and more Indian cities", () => {
   assert.equal(d.legs[0].toTimeZone, "Asia/Kolkata");
   assert.equal(d.legs[0].departureLocal, "2026-11-09T07:10");
 });
+
+test("the parser's Buy-item hint links brands the word matcher can't", () => {
+  const tasks = [{ id: "rep", name: "Mosquito repellent", quantity: 1, status: "TO_BUY", list: "BUY" }];
+  const line = { name: "Anti Brumm Forte 75 ml", quantity: 1, totalPrice: 8.99, currency: "EUR" };
+  assert.equal(matchPurchases([{ ...line, buyListItem: null }], tasks)[0].taskId, null, "no shared words");
+  assert.equal(matchPurchases([{ ...line, buyListItem: "mosquito repellent" }], tasks)[0].taskId, "rep");
+  assert.equal(matchPurchases([{ ...line, buyListItem: "Something else" }], tasks)[0].taskId, null, "a hint that isn't on the list is ignored");
+});
+
+test("person names get a capital", () => {
+  const d = sanitizeDraft({ items: [{ list: "BUY", name: "Sweets", quantity: 3, category: null, person: "auntie", price: null, currency: null }] });
+  assert.equal(d.items[0].person, "Auntie");
+});
