@@ -11,7 +11,7 @@ Requires Node 20+.
 
 ```bash
 npm install
-cp .env.example .env          # then: npm run push:keys, paste the keys into .env
+cp .env.example .env          # then: set APP_PASSWORD; npm run push:keys, paste the keys into .env
 npx prisma migrate dev        # creates prisma/dev.db and the tables
 npm run db:seed               # loads the Berlin → Hyderabad demo trip
 npm run dev                   # http://localhost:3000
@@ -32,10 +32,36 @@ Useful scripts:
 The demo trip always departs **7 days from today**, so "Next up" and the
 countdowns look realistic whenever you seed.
 
+## Login
+
+Trailmate is for one traveler, so there are no accounts: one passphrase,
+`APP_PASSWORD` in `.env`. `npm run dev` and `npm start` listen on every
+network interface, so without it anyone on the same Wi-Fi could open your
+trips and download your passport copy.
+
+- `/login` asks for the passphrase and sets a signed session cookie
+  (HttpOnly, SameSite=Lax, 90 days). It is signed with `APP_SECRET`, or a key
+  derived from the passphrase if that's empty; changing either logs every
+  device out. **Settings → Log out** ends the session on this device.
+- `src/middleware.ts` checks the cookie on every page and API route. Pages
+  redirect to `/login`, API calls get `401`. Public: `/login`, the offline
+  fallback, `/_next/static`, icons, `/manifest.webmanifest`, `/sw.js`,
+  `/pdf.worker.min.mjs`, and `POST /api/cron/sweep` (protected by
+  `CRON_SECRET` instead).
+- No `APP_PASSWORD`: in development the app stays open (the login page says
+  so); in production every request gets a `503` "set APP_PASSWORD" page.
+- The cookie is `Secure` in production, except over plain `http` (like
+  `npm start` opened from a phone at `http://192.168.x.x:3000`), where the
+  browser would drop a Secure cookie and you could never log in.
+- Offline: pages saved while logged in stay available; a redirect to `/login`
+  or the login page itself is never saved over them. Changes ticked offline wait
+  in the outbox until you are logged in and online again.
+
 ## Folder structure (so far)
 
 ```
 tests/
+  auth.test.ts         Session cookie signing and the middleware's allow-list
   checks.test.ts       Unit tests for src/lib/checks.ts
   lists.test.ts        Unit tests for baggage.ts, rules.ts, categorize.ts, geo.ts
   reminders.test.ts    Unit tests for reminders.ts
@@ -60,6 +86,7 @@ src/
     trips/[id]/lists/  Buy & Pack lists, baggage meters, suggestions, customs
     trips/[id]/docs/   Documents vault: list, upload, view (PDF via pdf.js), delete
     offline/           Shown when a page wasn't saved for offline yet
+    login/             Passphrase page + login/logout server actions
     trips/[id]/import/ Smart import: record / upload / paste → review → save
     trips/import-actions.ts  Saves what you confirmed on the review screen
     trips/actions.ts   Server action: create trip
@@ -76,6 +103,7 @@ src/
     api/import/        Reads a recording/photo/PDF/text into a draft (saves nothing)
     manifest.ts        PWA manifest (installable, needed for push on iPhone)
   instrumentation.ts   Starts the background scheduler when the server boots
+  middleware.ts        Requires the login cookie everywhere except public paths
   server/
     scheduler.ts       Every minute: due reminders -> Alerts -> push
     push.ts            Web Push adapter (timeout, retry, off without keys)
@@ -91,6 +119,7 @@ src/
   data/
     country-rules.json Editable suggestions + customs/airline rules per country
   lib/
+    auth.ts            Session cookie signing/checking, public-path allow-list
     db.ts              Prisma client (one instance across hot reloads)
     time.ts            Time zone helpers — store UTC, display local
     timeline.ts        Merges legs, stays and tasks into one sorted timeline
