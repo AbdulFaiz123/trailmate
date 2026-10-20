@@ -11,7 +11,7 @@ export function ConnectionLine({ connection }: { connection: Connection }) {
         ? "text-amber-700 dark:text-amber-400"
         : "text-muted";
   const label =
-    transferMin < 0 ? `${formatDuration(-transferMin)} overlap` : `${formatDuration(transferMin)} transfer`;
+    transferMin < 0 ? `${formatDuration(-transferMin)} too late` : `${formatDuration(transferMin)} transfer`;
   return (
     <div className={`flex items-center gap-2 py-1 pl-5 text-xs ${tone}`}>
       <span aria-hidden className="h-5 border-l-2 border-dashed border-current opacity-60" />

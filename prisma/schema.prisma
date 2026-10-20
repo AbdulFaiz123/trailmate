@@ -94,6 +94,8 @@ model Leg {
   livePlatform      String? // platform/gate as reported live
   lastCheckedAt     DateTime?
   simulated         Boolean   @default(false) // true when status came from "Simulate delay"
+  statusSource      String? // "db-rest", "mock", "simulated"
+  statusNote        String? // e.g. "Live data unavailable — showing timetable"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

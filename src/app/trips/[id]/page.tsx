@@ -12,6 +12,10 @@ import { baggageWarnings, summarizeBag } from "@/lib/baggage";
 import { customsReminders } from "@/lib/rules";
 import { TripTabs } from "@/components/TripTabs";
 import { AlertsBanner } from "@/components/AlertsBanner";
+import { DisruptionBanner } from "@/components/live/DisruptionBanner";
+import { SimulateControls } from "@/components/live/SimulateControls";
+import { isDisrupted } from "@/lib/impact";
+import { demoToolsEnabled } from "@/server/settings";
 import { ScrollToSaved } from "@/components/ScrollToSaved";
 import type { TimelineEntry } from "@/lib/timeline";
 
@@ -41,11 +45,28 @@ export default async function TripPage({
   const days = groupByDay(entries);
   const { next, current } = findNextUp(entries, now);
   const { connections, warnings: timelineWarnings } = runTripChecks(trip);
+  // The disruption banner shows the newest live alert for a leg that is
+  // still disrupted, read or not: it stays until the problem is gone.
+  const disruptedLegIds = trip.legs.filter((l) => isDisrupted(l) && l.arrivalAt.getTime() + l.arrivalDelayMin * 60_000 > now.getTime()).map((l) => l.id);
+  const disruption = disruptedLegIds.length
+    ? await prisma.alert.findFirst({
+        where: {
+          tripId: trip.id, itemId: { in: disruptedLegIds },
+          type: { in: ["MISSED_CONNECTION", "CANCELLATION", "DELAY", "PLATFORM_CHANGE"] },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : null;
   const newAlerts = await prisma.alert.findMany({
-    where: { tripId: trip.id, readAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    where: {
+      tripId: trip.id, readAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      ...(disruption ? { id: { not: disruption.id } } : {}),
+    },
     orderBy: [{ urgent: "desc" }, { createdAt: "desc" }],
     take: 2,
   });
+  const demo = demoToolsEnabled();
   // Lists feed the same "Trip checks" panel: overweight bags and serious
   // customs/airline problems (e.g. a power bank in the checked bag).
   const listWarnings: TripWarning[] = [
@@ -82,6 +103,7 @@ export default async function TripPage({
 
       <TripTabs tripId={trip.id} active="timeline" />
       <ScrollToSaved target={saved} />
+      <DisruptionBanner alert={disruption} />
       <AlertsBanner alerts={newAlerts} />
       <NextUpCard next={next} current={current} now={now} isEmpty={entries.length === 0} />
 
@@ -124,6 +146,14 @@ export default async function TripPage({
                     <li key={entry.key} id={anchor(entry)} className="scroll-mt-28">
                       {link ? <Link href={link} className="block active:scale-[0.99]">{card}</Link> : card}
                       {stayWarnings.map((w) => <InlineWarning key={w.id} warning={w} />)}
+                      {demo && entry.kind === "LEG" && (
+                        <details className="mt-1 px-1 text-xs">
+                          <summary className="cursor-pointer text-muted">⏱ Simulate delay</summary>
+                          <div className="mt-2">
+                            <SimulateControls tripId={trip.id} legId={entry.leg.id} isFlight={entry.leg.mode === "FLIGHT"} />
+                          </div>
+                        </details>
+                      )}
                       {connection && <ConnectionLine connection={connection} />}
                     </li>
                   );

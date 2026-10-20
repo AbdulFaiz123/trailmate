@@ -3,7 +3,7 @@
 One home for everything a traveler needs on a trip: stays, legs, packing and
 shopping lists, and live alerts when something goes wrong.
 
-> Status: **Step 4 of 6** — timeline, stays, legs, trip checks, lists, baggage, country rules, reminders and notifications.
+> Status: **Step 5 of 6** — everything up to live tracking, the disruption impact check and "Simulate delay". See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
 
 ## Setup
 
@@ -38,6 +38,7 @@ tests/
   checks.test.ts       Unit tests for src/lib/checks.ts
   lists.test.ts        Unit tests for baggage.ts, rules.ts, categorize.ts, geo.ts
   reminders.test.ts    Unit tests for reminders.ts
+  impact.test.ts       Unit tests for impact.ts and the DB adapter (fake fetch)
 prisma/
   schema.prisma        Data model (Trip, Leg, Stay, Task, Person, Document,
                        Dependency, Alert, Settings, PushSubscription)
@@ -65,6 +66,9 @@ src/
     scheduler.ts       Every minute: due reminders -> Alerts -> push
     push.ts            Web Push adapter (timeout, retry, off without keys)
     settings.ts        The single Settings row
+    alerts.ts          Store alerts (de-duplicated) and deliver them
+    disruption.ts      Poll legs, detect changes, impact check, alert
+    transport/         Live status adapters: db-rest (DB live), mock, flight mock
   components/          LocalTime, NextUpCard, TimelineEntryCard, TripChecks,
                        ConnectionLine, TripTabs, AlertBell, AlertsBanner, forms/, lists/
   data/
@@ -80,6 +84,7 @@ src/
     categorize.ts      Guesses a category from an item name (quick add)
     reminders.ts       Reminder rules: buy-by, shop nearby, packing, leave now, check-in
     geo.ts             Distance between two points, parse pasted coordinates
+    impact.ts          What a delay/cancellation breaks + the next option
     types.ts           Allowed values for the string "enum" columns
     format.ts          Money, weight and icon helpers
 ```
@@ -153,6 +158,32 @@ runs the sweep as if it were that moment. Note: the real background job keeps
 running on the real clock, so alerts held back by pretend quiet hours are
 released by the next real tick if it isn't quiet right now.
 
+## Live tracking and "Simulate delay" (step 5)
+
+- Legs leaving within 24 h are polled every 5 min, every 2 min in the last 2 h.
+- **German trains** with a DB station id (EVA number, e.g. Berlin Hbf `8011160`)
+  and a train number use Deutsche Bahn live data (`v6.db.transport.rest`, free,
+  no key). Flights use a mock for now; everything else uses mock data.
+- Each call has an 8 s timeout and one retry. If DB is down, the app backs off
+  for 10 minutes and shows "DB live data unavailable — showing the timetable".
+- A change (delay moved by 5+ min, cancellation, new platform/gate) runs the
+  **impact check**: which connection breaks, the next option, whether the leg
+  after that is still reachable, and whether you'll miss a hotel check-in. The
+  result is pushed straight away and shown as a banner on the trip.
+
+### Test it with "Simulate delay"
+
+1. Open the demo trip. Under the **ICE 597** card tap **⏱ Simulate delay → +40 min**
+   (or open the leg; the same controls are in *Live status*).
+2. You'll see: the ICE card turns red (+40 min, new times), the line to the S8
+   says *Missed*, a **Disruption** banner says
+   *"…You will miss the 14:16 S8. Your LH 752 is still reachable via S8 at 15:01…
+   → Take S8 at 15:01"*, and a notification arrives (if push is on).
+3. Try **+60**, **Cancel** on the S8, or a **Platform change**. Press **Reset**
+   to go back to the timetable (you get a "back on time" note).
+
+Simulation is available in development, or anywhere with `DEMO_TOOLS=1`.
+
 ## Roadmap
 
 | Step | What                                                         | Status |
@@ -161,7 +192,7 @@ released by the next real tick if it isn't quiet right now.
 | 2    | Stays, legs, gap/overlap/connection checks                   | ✅     |
 | 3    | Lists, baggage weight, country rules                         | ✅     |
 | 4    | Notifications and reminders                                  | ✅     |
-| 5    | Live tracking, disruption impact check, "Simulate delay"     |        |
+| 5    | Live tracking, disruption impact check, "Simulate delay"     | ✅     |
 | 6    | Offline support and the documents vault                      |        |
 | 7    | **Smart import**: voice message, photo/PDF of a booking, or a shop receipt → AI drafts legs, stays and list updates → you review before saving | |
 
