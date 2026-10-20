@@ -50,3 +50,7 @@ prisma/*.db-journal
 
 # copied from node_modules by scripts/copy-pdf-worker.mjs
 /public/pdf.worker.min.mjs
+
+# any SQLite file (e.g. a Prisma shadow database)
+*.db
+*.db-journal
