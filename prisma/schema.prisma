@@ -143,6 +143,8 @@ model Task {
   quantity Int     @default(1)
   category String? // GIFTS | ELECTRONICS | CLOTHES | DOCUMENTS | TOILETRIES | MEDICINE | FOOD | OTHER
   status   String  @default("TODO") // TO_BUY | BOUGHT | PACKED | TODO | DONE
+  // When `status` last changed (not any other field): offline taps are compared with this.
+  statusChangedAt DateTime @default(now())
 
   personId String?
   person   Person? @relation(fields: [personId], references: [id], onDelete: SetNull)

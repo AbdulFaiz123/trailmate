@@ -1,8 +1,8 @@
 // Run with: npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectType } from "../src/server/storage";
-import { nextTaskStatus, parseQuickAdd } from "../src/lib/task-status";
+import { declaredTooLarge, detectType, fileCsp } from "../src/server/storage";
+import { isStaleStatusTap, nextTaskStatus, parseQuickAdd, statusUpdate } from "../src/lib/task-status";
 import { samplePdf } from "../prisma/seed-helpers/sample-files";
 
 test("file type comes from the bytes, not the browser's claim", () => {
@@ -35,4 +35,33 @@ test("status cycle matches the list", () => {
 test("quick add parsing", () => {
   assert.deepEqual(parseQuickAdd("3x Haribo"), { name: "Haribo", quantity: 3, category: "FOOD" });
   assert.deepEqual(parseQuickAdd("Phone charger"), { name: "Phone charger", quantity: 1, category: "ELECTRONICS" });
+});
+
+test("offline status taps lose only to a later *status* change, with clock-skew slack", () => {
+  const changed = new Date("2026-11-10T10:00:00Z");
+  const at = (iso: string) => Date.parse(iso);
+  assert.equal(isStaleStatusTap(changed, at("2026-11-10T10:30:00Z")), false, "tap after the server change wins");
+  assert.equal(isStaleStatusTap(changed, at("2026-11-10T09:57:00Z")), false, "a phone clock a few minutes behind still wins");
+  assert.equal(isStaleStatusTap(changed, at("2026-11-10T09:00:00Z")), true, "tap an hour before the server change loses");
+});
+
+test("statusChangedAt moves only when the status does (price/notes edits don't count)", () => {
+  const now = new Date("2026-11-10T10:00:00Z");
+  assert.deepEqual(statusUpdate("TO_BUY", "TO_BUY", now), { status: "TO_BUY" });
+  assert.deepEqual(statusUpdate("TO_BUY", "BOUGHT", now), { status: "BOUGHT", statusChangedAt: now });
+});
+
+test("uploads that declare an oversized body are refused before reading it", () => {
+  const req = (len?: number) => new Request("http://x/api", { method: "POST", headers: len == null ? {} : { "content-length": String(len) } });
+  const max = 15 * 1024 * 1024;
+  assert.equal(declaredTooLarge(req(max), max), false, "a max-size file plus multipart overhead fits");
+  assert.equal(declaredTooLarge(req(max + 100 * 1024), max), false);
+  assert.equal(declaredTooLarge(req(max + 2 * 1024 * 1024), max), true);
+  assert.equal(declaredTooLarge(req(), max), false, "no header: the per-file check after parsing still applies");
+});
+
+test("PDFs aren't served with the policy that blanks Chrome's viewer; images are", () => {
+  assert.ok(!fileCsp("application/pdf").includes("default-src"));
+  assert.ok(fileCsp("application/pdf").includes("frame-ancestors"));
+  assert.ok(fileCsp("image/png").startsWith("default-src 'none'"));
 });

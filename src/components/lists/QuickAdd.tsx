@@ -30,7 +30,7 @@ export function QuickAdd({ tripId, list, newHref }: { tripId: string; list: "BUY
           if (!name) return;
           enqueue({ kind: "addTask", tripId, list, name, clientId: crypto.randomUUID() });
           inputRef.current!.value = "";
-          if ((await flushOutbox()) > 0) router.refresh();
+          if ((await flushOutbox()).applied > 0) router.refresh();
         }}
         className="flex gap-2"
       >

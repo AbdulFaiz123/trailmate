@@ -1,10 +1,10 @@
 // The background job. Every minute it:
-//   1. works out which reminders are due for every trip (src/lib/reminders.ts)
+//   1. works out which reminders are due for every current trip (src/lib/reminders.ts)
 //   2. stores new ones as Alerts (the unique dedupeKey stops duplicates)
 //   3. pushes alerts that haven't been pushed yet, unless it's quiet hours
 //   4. polls live status for legs leaving within 24 h (src/server/disruption.ts)
 import { prisma } from "@/lib/db";
-import { dueReminders } from "@/lib/reminders";
+import { dueReminders, sweepFromDate } from "@/lib/reminders";
 import { createAlert, deliverPending } from "./alerts";
 import { pollLegs } from "./disruption";
 import { getSettings } from "./settings";
@@ -22,6 +22,8 @@ export async function runSweep(now = new Date()): Promise<SweepResult> {
   try {
     const settings = await getSettings();
     const trips = await prisma.trip.findMany({
+      // Only trips that haven't ended (dates are "yyyy-MM-dd", so text order is date order).
+      where: { endDate: { gte: sweepFromDate(now, settings.homeTimeZone) } },
       include: { legs: true, stays: true, tasks: { include: { person: true } } },
     });
     let created = 0;

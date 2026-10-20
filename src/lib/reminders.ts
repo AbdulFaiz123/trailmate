@@ -284,6 +284,16 @@ export function dueReminders(trip: TripForReminders, settings: ReminderSettings,
 }
 
 /**
+ * The earliest trip end date ("yyyy-MM-dd") the scheduler still looks at:
+ * yesterday in the home zone. Trips that ended before then can't have
+ * reminders left; the extra day covers late arrivals and trips whose own
+ * home zone is behind the traveler's.
+ */
+export function sweepFromDate(now: Date, homeTimeZone: string): string {
+  return localDateKey(addDays(now, -1), homeTimeZone);
+}
+
+/**
  * Are we inside quiet hours? Quiet hours are wall-clock times ("22:30" to
  * "07:00") in the zone the traveler is *in right now*: 23:00 in Hyderabad is
  * night, even if it's only 18:30 at home.

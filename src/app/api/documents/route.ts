@@ -3,8 +3,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createId } from "@paralleldrive/cuid2";
 import { prisma } from "@/lib/db";
+import { formValues } from "@/lib/form-utils";
 import { DOCUMENT_KINDS } from "@/lib/types";
-import { MAX_UPLOAD_BYTES, detectType, saveFile } from "@/server/storage";
+import { MAX_UPLOAD_BYTES, declaredTooLarge, detectType, saveFile } from "@/server/storage";
 
 const Fields = z.object({
   tripId: z.string().min(1),
@@ -15,10 +16,11 @@ const Fields = z.object({
 
 /** Upload a document (multipart form). Route handler, not a server action: files can be 15 MB. */
 export async function POST(req: Request) {
+  if (declaredTooLarge(req, MAX_UPLOAD_BYTES)) return NextResponse.json({ error: "Files can be up to 15 MB" }, { status: 413 });
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Expected a form upload" }, { status: 400 });
   const file = form.get("file");
-  const parsed = Fields.safeParse(Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string")));
+  const parsed = Fields.safeParse(formValues(form));
   if (!parsed.success) return NextResponse.json({ error: "Missing or invalid fields" }, { status: 400 });
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Choose a file" }, { status: 400 });
   if (file.size > MAX_UPLOAD_BYTES) return NextResponse.json({ error: "Files can be up to 15 MB" }, { status: 413 });

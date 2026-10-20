@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { readStoredFile } from "@/server/storage";
+import { fileCsp, readStoredFile } from "@/server/storage";
 
 /**
  * Serve a stored document. Files never change once uploaded (a new upload is
@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         "content-disposition": `inline; filename*=UTF-8''${encodeURIComponent(doc.fileName)}`,
         "cache-control": "private, max-age=31536000, immutable",
         "x-content-type-options": "nosniff",
-        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'",
+        "content-security-policy": fileCsp(doc.mimeType),
       },
     });
   } catch {

@@ -10,6 +10,8 @@ import { localToUtc } from "@/lib/time";
 import { parseLatLng } from "@/lib/geo";
 import { findSuggestion, safeJsonArray, suggestionsFor } from "@/lib/rules";
 import { TASK_CATEGORIES } from "@/lib/types";
+import { statusUpdate } from "@/lib/task-status";
+import { formValues, zodErrors } from "@/lib/form-utils";
 import type { FormState } from "./actions";
 
 const optional = z.string().trim().optional().transform((v) => (v ? v : null));
@@ -58,13 +60,9 @@ function refresh(tripId: string) {
 }
 
 export async function saveTask(tripId: string, taskId: string | null, _prev: FormState, formData: FormData): Promise<FormState> {
-  const values = Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  const values = formValues(formData);
   const parsed = TaskInput.safeParse(values);
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) errors[String(issue.path[0])] ??= issue.message;
-    return { errors, values };
-  }
+  if (!parsed.success) return { errors: zodErrors(parsed.error), values };
   const { person, price, buyBy, location, ...rest } = parsed.data;
   const trip = await prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
 
@@ -86,7 +84,10 @@ export async function saveTask(tripId: string, taskId: string | null, _prev: For
     lat: rest.list === "BUY" ? (location?.lat ?? null) : null,
     lng: rest.list === "BUY" ? (location?.lng ?? null) : null,
   };
-  if (taskId) await prisma.task.update({ where: { id: taskId, tripId }, data });
+  if (taskId) {
+    const current = await prisma.task.findUniqueOrThrow({ where: { id: taskId, tripId }, select: { status: true } });
+    await prisma.task.update({ where: { id: taskId, tripId }, data: { ...data, ...statusUpdate(current.status, status) } });
+  }
   else await prisma.task.create({ data: { ...data, tripId } });
 
   refresh(tripId);
@@ -139,13 +140,9 @@ const kg = z
 const BaggageInput = z.object({ checkedAllowance: kg, cabinAllowance: kg, checkedTare: kg, cabinTare: kg });
 
 export async function saveBaggage(tripId: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const values = Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  const values = formValues(formData);
   const parsed = BaggageInput.safeParse(values);
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) errors[String(issue.path[0])] ??= issue.message;
-    return { errors, values };
-  }
+  if (!parsed.success) return { errors: zodErrors(parsed.error), values };
   const v = parsed.data;
   await prisma.trip.update({
     where: { id: tripId },

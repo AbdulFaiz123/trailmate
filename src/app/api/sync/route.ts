@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { parseQuickAdd } from "@/lib/task-status";
+import { isStaleStatusTap, parseQuickAdd, statusUpdate } from "@/lib/task-status";
 import type { SyncResult } from "@/lib/outbox";
 
 const Op = z.discriminatedUnion("kind", [
@@ -29,9 +29,9 @@ export async function POST(req: Request) {
       if (!task) { results.push({ opId, result: "missing" }); continue; }
       const statusOk = task.list === "BUY" ? op.status !== "TODO" : op.status === "TODO" || op.status === "PACKED";
       if (!statusOk) { results.push({ opId, result: "invalid" }); continue; }
-      // Last write wins: if the server changed it after this offline tap, keep the server's.
-      if (task.updatedAt.getTime() > op.at) { results.push({ opId, result: "stale" }); continue; }
-      await prisma.task.update({ where: { id: task.id }, data: { status: op.status } });
+      // Last write wins: if the status was changed on the server after this offline tap, keep the server's.
+      if (isStaleStatusTap(task.statusChangedAt, op.at)) { results.push({ opId, result: "stale" }); continue; }
+      await prisma.task.update({ where: { id: task.id }, data: statusUpdate(task.status, op.status) });
       results.push({ opId, result: "applied" });
       trips.add(op.tripId);
     } else {

@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Leg, Stay, Task } from "@prisma/client";
-import { allReminders, dueReminders, isQuietTime, type TripForReminders } from "../src/lib/reminders";
+import { allReminders, dueReminders, isQuietTime, sweepFromDate, type TripForReminders } from "../src/lib/reminders";
 import { localToUtc } from "../src/lib/time";
 
 const BER = "Europe/Berlin";
@@ -104,4 +104,10 @@ test("quiet hours wrap around midnight, in the traveler's zone", () => {
   // 19:00 in Berlin is 23:30 in Hyderabad -> quiet there.
   assert.equal(isQuietTime(t("2026-10-27", "19:00"), HYD, "22:30", "07:00"), true);
   assert.equal(isQuietTime(t("2026-10-27", "23:00"), BER, null, null), false);
+});
+
+test("the sweep skips trips that ended before yesterday (home time)", () => {
+  // 00:30 on 12 Nov in Berlin is still 11 Nov in UTC: the cut-off follows home time.
+  assert.equal(sweepFromDate(t("2026-11-12", "00:30"), BER), "2026-11-11");
+  assert.equal(sweepFromDate(t("2026-11-12", "23:30"), BER), "2026-11-11");
 });

@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { fromLocalInput } from "@/lib/time";
 import { guessCategory } from "@/lib/categorize";
+import { statusUpdate } from "@/lib/task-status";
 import type { ParsedImportPayload } from "@/lib/import/payload";
 import { personIdFor } from "./people";
 
@@ -84,7 +85,7 @@ export async function saveImport(tripId: string, p: ParsedImportPayload): Promis
       if (pu.action === "MARK" && pu.taskId) {
         const task = await tx.task.findUnique({ where: { id: pu.taskId, tripId } });
         if (!task) continue;
-        await tx.task.update({ where: { id: task.id }, data: { status: task.status === "PACKED" ? "PACKED" : "BOUGHT", ...(pu.unitPrice != null ? priceData : {}) } });
+        await tx.task.update({ where: { id: task.id }, data: { ...statusUpdate(task.status, task.status === "PACKED" ? "PACKED" : "BOUGHT"), ...(pu.unitPrice != null ? priceData : {}) } });
       } else {
         await tx.task.create({
           data: { tripId, list: "BUY", name: pu.name, quantity: pu.quantity, category: guessCategory(pu.name), status: "BOUGHT", bag: "CHECKED", ...priceData },
