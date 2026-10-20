@@ -1,0 +1,365 @@
+{
+  "_readme": "Editable rules for suggestions and customs reminders. Keys are ISO country codes; '*' applies to every trip. Customs entries are reminders, NOT legal advice: limits change, so every rule links to an official source. 'approxRates' are rough conversions used only to compare totals against limits — edit them freely.",
+  "approxRates": {
+    "EUR": {
+      "INR": 100,
+      "USD": 1.1,
+      "EUR": 1
+    },
+    "INR": {
+      "EUR": 0.01,
+      "USD": 0.011,
+      "INR": 1
+    },
+    "USD": {
+      "EUR": 0.9,
+      "INR": 90,
+      "USD": 1
+    }
+  },
+  "*": {
+    "suggestions": [
+      {
+        "id": "ANY.passport",
+        "list": "PACK",
+        "name": "Passport",
+        "category": "DOCUMENTS",
+        "weightG": 40,
+        "bag": "CABIN",
+        "keywords": [
+          "passport"
+        ]
+      },
+      {
+        "id": "ANY.insurance",
+        "list": "PACK",
+        "name": "Travel insurance details",
+        "category": "DOCUMENTS",
+        "weightG": 10,
+        "bag": "CABIN",
+        "keywords": [
+          "insurance"
+        ]
+      },
+      {
+        "id": "ANY.chargers",
+        "list": "PACK",
+        "name": "Phone charger + cable",
+        "category": "ELECTRONICS",
+        "weightG": 150,
+        "bag": "CABIN",
+        "keywords": [
+          "charger"
+        ]
+      },
+      {
+        "id": "ANY.meds",
+        "list": "PACK",
+        "name": "Personal medicines (in original packaging)",
+        "category": "MEDICINE",
+        "weightG": 200,
+        "bag": "CABIN",
+        "keywords": [
+          "medicine",
+          "meds",
+          "tablets"
+        ]
+      }
+    ],
+    "customs": [
+      {
+        "id": "AIR.lithium",
+        "kind": "airline",
+        "type": "bag",
+        "title": "Power banks and spare batteries go in the cabin",
+        "detail": "Airlines do not allow power banks or spare lithium batteries in checked bags. Most allow up to 100 Wh in the cabin.",
+        "keywords": [
+          "power bank",
+          "powerbank",
+          "spare battery",
+          "lithium"
+        ],
+        "forbiddenBag": "CHECKED",
+        "sourceLabel": "your airline's dangerous goods page"
+      },
+      {
+        "id": "AIR.liquids",
+        "kind": "airline",
+        "type": "bag",
+        "title": "Liquids over 100 ml in your cabin bag",
+        "detail": "Cabin liquids are usually limited to 100 ml per container in one clear 1-litre bag. Move bigger bottles to the checked bag.",
+        "keywords": [
+          "perfume",
+          "shampoo",
+          "lotion",
+          "sunscreen",
+          "sanitizer",
+          "repellent",
+          "liquid",
+          "honey",
+          "ghee",
+          "pickle"
+        ],
+        "forbiddenBag": "CABIN",
+        "sourceLabel": "your airport's security rules",
+        "exceptKeywords": [
+          "travel size",
+          "travel-size",
+          "mini",
+          "50 ml",
+          "50ml",
+          "100 ml",
+          "100ml",
+          "solid"
+        ]
+      }
+    ]
+  },
+  "IN": {
+    "name": "India",
+    "currency": "INR",
+    "plugs": [
+      "C",
+      "D",
+      "M"
+    ],
+    "voltage": "230 V, 50 Hz",
+    "officialUrl": "https://www.cbic.gov.in",
+    "officialLabel": "CBIC (Indian customs)",
+    "suggestions": [
+      {
+        "id": "IN.adapter",
+        "list": "BUY",
+        "name": "India power adapter (Type D/M)",
+        "category": "ELECTRONICS",
+        "weightG": 80,
+        "priceMinor": 1299,
+        "currency": "EUR",
+        "bag": "CABIN",
+        "keywords": [
+          "adapter"
+        ],
+        "notes": "India uses plug types C, D and M (230 V). Slim Europlugs (Type C) fit many sockets; German Schuko plugs (Type F) usually don't."
+      },
+      {
+        "id": "IN.cash",
+        "list": "BUY",
+        "name": "Rupee cash for arrival",
+        "category": "OTHER",
+        "weightG": 10,
+        "bag": "CABIN",
+        "keywords": [
+          "rupee",
+          "inr",
+          "cash"
+        ],
+        "notes": "Rupees are hard to buy outside India. Plan to use an ATM at arrivals; carry a little for the taxi."
+      },
+      {
+        "id": "IN.repellent",
+        "list": "BUY",
+        "name": "Mosquito repellent",
+        "category": "MEDICINE",
+        "weightG": 150,
+        "priceMinor": 799,
+        "currency": "EUR",
+        "bag": "CHECKED",
+        "keywords": [
+          "mosquito",
+          "repellent"
+        ]
+      },
+      {
+        "id": "IN.ors",
+        "list": "BUY",
+        "name": "Oral rehydration salts",
+        "category": "MEDICINE",
+        "weightG": 60,
+        "priceMinor": 499,
+        "currency": "EUR",
+        "bag": "CHECKED",
+        "keywords": [
+          "rehydration",
+          "ors",
+          "elotrans"
+        ]
+      },
+      {
+        "id": "IN.visa",
+        "list": "PACK",
+        "name": "e-Visa printout",
+        "category": "DOCUMENTS",
+        "weightG": 20,
+        "bag": "CABIN",
+        "keywords": [
+          "visa"
+        ],
+        "notes": "Keep a printed copy of the e-Visa approval with your passport."
+      },
+      {
+        "id": "IN.sanitizer",
+        "list": "PACK",
+        "name": "Hand sanitizer (travel size)",
+        "category": "TOILETRIES",
+        "weightG": 60,
+        "bag": "CABIN",
+        "keywords": [
+          "sanitizer"
+        ]
+      },
+      {
+        "id": "IN.clothes",
+        "list": "PACK",
+        "name": "Light, loose cotton clothes",
+        "category": "CLOTHES",
+        "weightG": 3000,
+        "bag": "CHECKED",
+        "keywords": [
+          "cotton",
+          "clothes"
+        ]
+      }
+    ],
+    "customs": [
+      {
+        "id": "IN.allowance",
+        "kind": "entry",
+        "type": "value",
+        "title": "Duty-free allowance on arrival in India",
+        "detail": "Adult passengers can bring goods (not counting used personal belongings) up to roughly ₹50,000 duty-free. Above that, declare them at the red channel.",
+        "lists": [
+          "BUY"
+        ],
+        "maxValue": {
+          "amountMinor": 5000000,
+          "currency": "INR"
+        }
+      },
+      {
+        "id": "IN.cash",
+        "kind": "entry",
+        "type": "info",
+        "title": "Declare large amounts of foreign cash",
+        "detail": "Foreign currency notes above about US$5,000 (or US$10,000 including traveller's cheques) must be declared on arrival."
+      },
+      {
+        "id": "IN.tobacco",
+        "kind": "entry",
+        "type": "quantity",
+        "title": "Cigarettes: about 100 duty-free",
+        "detail": "Tobacco and alcohol have small duty-free limits (roughly 100 cigarettes and 2 litres of alcohol).",
+        "keywords": [
+          "cigarette",
+          "cigar",
+          "tobacco"
+        ],
+        "maxQuantity": 100
+      },
+      {
+        "id": "IN.alcohol",
+        "kind": "entry",
+        "type": "match",
+        "title": "Alcohol: about 2 litres duty-free",
+        "detail": "Count the bottles: anything over roughly 2 litres must be declared.",
+        "keywords": [
+          "whisky",
+          "whiskey",
+          "wine",
+          "vodka",
+          "gin",
+          "rum",
+          "liquor",
+          "alcohol",
+          "beer",
+          "schnapps",
+          "jägermeister"
+        ]
+      },
+      {
+        "id": "IN.restricted",
+        "kind": "entry",
+        "type": "match",
+        "severity": "CRITICAL",
+        "title": "Needs permission in India",
+        "detail": "Satellite phones and drones can't be brought into India without prior government permission.",
+        "keywords": [
+          "satellite phone",
+          "thuraya",
+          "iridium",
+          "inreach",
+          "drone",
+          "dji"
+        ]
+      }
+    ]
+  },
+  "DE": {
+    "name": "Germany",
+    "currency": "EUR",
+    "plugs": [
+      "C",
+      "F"
+    ],
+    "voltage": "230 V, 50 Hz",
+    "officialUrl": "https://www.zoll.de/EN/",
+    "officialLabel": "German customs (Zoll)",
+    "suggestions": [
+      {
+        "id": "DE.adapter",
+        "list": "BUY",
+        "name": "EU power adapter (Type C/F)",
+        "category": "ELECTRONICS",
+        "weightG": 80,
+        "bag": "CABIN",
+        "keywords": [
+          "adapter"
+        ]
+      }
+    ],
+    "customs": [
+      {
+        "id": "DE.allowance",
+        "kind": "return",
+        "type": "info",
+        "title": "Coming home: €430 duty-free by air",
+        "detail": "Goods bought outside the EU are duty-free up to about €430 per adult when you arrive by plane. Keep receipts for anything expensive."
+      },
+      {
+        "id": "DE.animal",
+        "kind": "return",
+        "type": "match",
+        "severity": "CRITICAL",
+        "title": "No meat or dairy from outside the EU",
+        "detail": "Bringing meat and milk products (e.g. ghee, paneer, sweets made with milk) into the EU from most non-EU countries is not allowed.",
+        "keywords": [
+          "ghee",
+          "paneer",
+          "meat",
+          "mutton",
+          "chicken",
+          "milk",
+          "cheese",
+          "khoa",
+          "kalakand",
+          "barfi",
+          "burfi",
+          "rasgulla"
+        ]
+      },
+      {
+        "id": "DE.tobacco",
+        "kind": "return",
+        "type": "info",
+        "title": "Tobacco and alcohol limits on the way back",
+        "detail": "Roughly 200 cigarettes and 1 litre of spirits (or 2 litres of fortified wine) per adult are duty-free from outside the EU."
+      },
+      {
+        "id": "DE.cash",
+        "kind": "return",
+        "type": "info",
+        "title": "Declare €10,000 or more in cash",
+        "detail": "Cash of €10,000 or more must be declared when entering or leaving the EU."
+      }
+    ]
+  }
+}

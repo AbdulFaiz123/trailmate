@@ -1,0 +1,271 @@
+// Trailmate data model
+//
+// Rules that apply everywhere:
+// - Every instant (departure, check-in, ...) is stored as a UTC DateTime.
+// - Every place that has a time also stores its IANA time zone
+//   (e.g. "Europe/Berlin", "Asia/Kolkata"). The UI converts UTC -> that zone.
+// - Money is stored as integer minor units (cents/paise) + an ISO currency code.
+// - Weight is stored as integer grams.
+// - "Enum-like" fields are plain strings so the schema works the same on
+//   SQLite and Postgres. Allowed values are listed in comments and in
+//   src/lib/types.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Trip {
+  id                 String  @id @default(cuid())
+  name               String
+  origin             String // "Berlin, Germany"
+  destination        String // "Hyderabad, India"
+  originCountry      String? // ISO 3166 alpha-2, e.g. "DE" — customs rules for the way home
+  destinationCountry String? // ISO 3166 alpha-2, e.g. "IN" — drives country rules
+  // Calendar dates, not instants: "2026-11-12". A trip "starts on the 12th"
+  // regardless of time zone, so we keep it as a plain date string.
+  startDate          String
+  endDate            String
+  homeCurrency       String  @default("EUR")
+  homeTimeZone       String  @default("Europe/Berlin")
+
+  // Baggage (step 3). Allowance = what the airline lets you carry;
+  // tare = the empty suitcase / backpack itself.
+  checkedAllowanceG    Int?
+  cabinAllowanceG      Int?
+  checkedTareG         Int    @default(0)
+  cabinTareG           Int    @default(0)
+  // Suggestion ids from country-rules.json the traveler said "no thanks" to (JSON array)
+  dismissedSuggestions String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legs         Leg[]
+  stays        Stay[]
+  tasks        Task[]
+  people       Person[]
+  documents    Document[]
+  dependencies Dependency[]
+  alerts       Alert[]
+}
+
+// A movement from place X to place Y.
+model Leg {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  mode String // TRAIN | FLIGHT | BUS | TAXI | WALK | FERRY | OTHER
+
+  fromName     String
+  fromTimeZone String
+  fromLat      Float?
+  fromLng      Float?
+  fromStopId   String? // provider id, e.g. DB station EVA number "8011160"
+
+  toName     String
+  toTimeZone String
+  toLat      Float?
+  toLng      Float?
+  toStopId   String?
+
+  // Planned times (UTC)
+  departureAt DateTime
+  arrivalAt   DateTime
+
+  carrier    String? // "Deutsche Bahn", "Lufthansa"
+  number     String? // "ICE 597", "LH 752"
+  bookingRef String?
+  platform   String? // platform or gate (planned)
+  seat       String?
+  costMinor  Int?
+  currency   String?
+  notes      String?
+
+  // Live status (filled by the disruption tracker in step 5)
+  status            String    @default("SCHEDULED") // SCHEDULED | DELAYED | CANCELLED | DEPARTED | ARRIVED
+  departureDelayMin Int       @default(0)
+  arrivalDelayMin   Int       @default(0)
+  livePlatform      String? // platform/gate as reported live
+  lastCheckedAt     DateTime?
+  simulated         Boolean   @default(false) // true when status came from "Simulate delay"
+  statusSource      String? // "db-rest", "mock", "simulated"
+  statusNote        String? // e.g. "Live data unavailable — showing timetable"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tripId, departureAt])
+}
+
+// A place to sleep.
+model Stay {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  kind     String // HOTEL | AIRBNB | FAMILY | OTHER
+  name     String
+  address  String?
+  timeZone String
+  lat      Float?
+  lng      Float?
+
+  checkInAt       DateTime // earliest check-in (UTC)
+  latestCheckInAt DateTime? // reception closes / host goes to sleep
+  checkOutAt      DateTime
+
+  bookingRef String?
+  bookingUrl String?
+  costMinor  Int?
+  currency   String?
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tripId, checkInAt])
+}
+
+// Something to buy, pack or do.
+model Task {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  list     String // BUY | PACK | DO
+  name     String
+  quantity Int     @default(1)
+  category String? // GIFTS | ELECTRONICS | CLOTHES | DOCUMENTS | TOILETRIES | MEDICINE | FOOD | OTHER
+  status   String  @default("TODO") // TO_BUY | BOUGHT | PACKED | TODO | DONE
+
+  personId String?
+  person   Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  weightG    Int? // per unit
+  priceMinor Int? // per unit, estimated
+  currency   String?
+  bag        String? // CHECKED | CABIN | NONE
+  buyBy      DateTime?
+  dueAt      DateTime?
+
+  // Optional place (for "buy it near your hotel" nudges)
+  placeName String?
+  timeZone  String?
+  lat       Float?
+  lng       Float?
+
+  notes        String?
+  sortOrder    Int     @default(0)
+  suggestionId String? // set when the item was added from a country suggestion
+  clientId     String? @unique // set when created offline: replaying the sync twice can't duplicate it
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tripId, list])
+}
+
+// A gift recipient, e.g. "Mom".
+model Person {
+  id       String  @id @default(cuid())
+  tripId   String
+  trip     Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name     String
+  relation String?
+  tasks    Task[]
+}
+
+// A file attached to the trip or to one item (step 6).
+model Document {
+  id       String  @id @default(cuid())
+  tripId   String
+  trip     Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  itemKind String? // LEG | STAY | TASK — null means "whole trip"
+  itemId   String?
+
+  kind        String // TICKET | BOOKING | VISA | PASSPORT | INSURANCE | OTHER
+  title       String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  storagePath String // path inside the app's storage folder
+
+  createdAt DateTime @default(now())
+}
+
+// "B depends on A": B can only happen if A ends at least `minBufferMin`
+// minutes before B starts. Example: flight depends on the S-Bahn to the
+// airport with a 90-minute buffer.
+//
+// Items live in three different tables, so this is a polymorphic link:
+// (kind, id) pairs instead of foreign keys.
+model Dependency {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  fromKind     String // LEG | STAY | TASK   (the thing that must finish first)
+  fromId       String
+  toKind       String // LEG | STAY | TASK   (the thing that depends on it)
+  toId         String
+  minBufferMin Int    @default(0)
+
+  @@unique([fromKind, fromId, toKind, toId])
+  @@index([tripId])
+}
+
+// Something Trailmate wants to tell the traveler (step 4/5).
+model Alert {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  type      String // DELAY | CANCELLATION | PLATFORM_CHANGE | MISSED_CONNECTION | BUY_BY | PACKING | LEAVE_NOW | CHECK_IN | NEARBY_SHOP | WARNING
+  severity  String // INFO | WARNING | CRITICAL
+  title     String
+  body      String
+  action    String? // suggested next action
+  itemKind  String?
+  itemId    String?
+  // Same key = same alert; prevents sending "your train is late" 12 times.
+  dedupeKey String    @unique
+  urgent    Boolean   @default(false) // urgent alerts ignore quiet hours (e.g. "Leave now")
+  url       String? // where tapping the notification takes you
+  fireAt    DateTime? // when the reminder became due (may be a simulated time)
+  expiresAt DateTime? // after this the alert is stale (e.g. the train has left)
+
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  pushedAt  DateTime?
+}
+
+// One traveler, one settings row (id = "me").
+model Settings {
+  id              String  @id @default("me")
+  homeTimeZone    String  @default("Europe/Berlin")
+  leaveBufferMin  Int     @default(20) // walk-to-station buffer for "Leave now"
+  quietHoursStart String? // "22:00" in home time zone
+  quietHoursEnd   String? // "07:00"
+  alertDelay      Boolean @default(true)
+  alertConnection Boolean @default(true)
+  alertBuyBy      Boolean @default(true)
+  alertPacking    Boolean @default(true)
+  alertLeaveNow   Boolean @default(true)
+  alertCheckIn    Boolean @default(true)
+  alertNearbyShop Boolean @default(true)
+}
+
+// Browser Web Push subscriptions (step 4).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}

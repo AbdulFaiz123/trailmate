@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!.env.example
+
+# sqlite
+prisma/*.db
+prisma/*.db-journal
+
+# uploaded documents (step 6)
+/storage/
+
+# copied from node_modules by scripts/copy-pdf-worker.mjs
+/public/pdf.worker.min.mjs
+
+# any SQLite file (e.g. a Prisma shadow database)
+*.db
+*.db-journal
+
+# second build folder for a dev server running next to production
+/.next-dev/
