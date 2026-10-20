@@ -104,3 +104,24 @@ arriving and there is no stay check-in in between.
     `return` rules use your home country, `airline` rules apply to every trip.
   - Keywords match whole words (so "gin" doesn't match "original").
   - These are reminders with a link to the official source, **not legal advice**.
+
+## Roadmap
+
+| Step | What                                                         | Status |
+| ---- | ------------------------------------------------------------ | ------ |
+| 1    | Data model, demo trip, timeline                              | ✅     |
+| 2    | Stays, legs, gap/overlap/connection checks                   | ✅     |
+| 3    | Lists, baggage weight, country rules                         | ✅     |
+| 4    | Notifications and reminders                                  |        |
+| 5    | Live tracking, disruption impact check, "Simulate delay"     |        |
+| 6    | Offline support and the documents vault                      |        |
+| 7    | **Smart import**: voice message, photo/PDF of a booking, or a shop receipt → AI drafts legs, stays and list updates → you review before saving | |
+
+Step 7 notes:
+- Images and PDFs go straight to Claude; voice is turned into text first
+  (browser dictation, or a speech-to-text adapter).
+- Always a review screen, never a silent save. Times are validated in the
+  place's time zone, the same way the forms do.
+- Receipts mark matching Buy items as bought and fill in the real price.
+- Uploaded files are kept in the documents vault (step 6).
+- A mock parser keeps it working with no API key.
