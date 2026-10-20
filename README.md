@@ -3,7 +3,7 @@
 One home for everything a traveler needs on a trip: stays, legs, packing and
 shopping lists, and live alerts when something goes wrong.
 
-> Status: **Phase 1 complete (steps 1–6)**. Next: step 7, smart import. See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
+> Status: **Steps 1–7 done** — Phase 1 plus smart import (voice, photo/PDF, receipts). See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
 
 ## Setup
 
@@ -41,6 +41,7 @@ tests/
   reminders.test.ts    Unit tests for reminders.ts
   impact.test.ts       Unit tests for impact.ts and the DB adapter (fake fetch)
   offline.test.ts      File-type checks, sample PDF structure, status cycle
+  import.test.ts       Receipt matching, sanitizer, mock reader, OpenAI adapter (fake fetch)
 scripts/
   copy-pdf-worker.mjs  Copies pdf.js's worker to public/ (runs before dev/build)
 storage/               Uploaded documents (git-ignored, created on first upload)
@@ -59,6 +60,8 @@ src/
     trips/[id]/lists/  Buy & Pack lists, baggage meters, suggestions, customs
     trips/[id]/docs/   Documents vault: list, upload, view (PDF via pdf.js), delete
     offline/           Shown when a page wasn't saved for offline yet
+    trips/[id]/import/ Smart import: record / upload / paste → review → save
+    trips/import-actions.ts  Saves what you confirmed on the review screen
     trips/actions.ts   Server action: create trip
     trips/item-actions.ts  Server actions: save/delete legs and stays
     trips/task-actions.ts  Server actions: list items, suggestions, baggage
@@ -70,6 +73,7 @@ src/
     api/cron/sweep/    Run the reminder sweep from an external cron
     api/documents/     Upload (type-checked, 15 MB max); [id]/file serves it
     api/sync/          Applies changes queued offline (idempotent)
+    api/import/        Reads a recording/photo/PDF/text into a draft (saves nothing)
     manifest.ts        PWA manifest (installable, needed for push on iPhone)
   instrumentation.ts   Starts the background scheduler when the server boots
   server/
@@ -80,6 +84,8 @@ src/
     disruption.ts      Poll legs, detect changes, impact check, alert
     transport/         Live status adapters: db-rest (DB live), mock, flight mock
     storage.ts         Local file storage + "is this really a PDF/image?" checks
+    people.ts          Find-or-create gift recipients
+    ai/                Smart import: OpenAI adapter, mock reader, prompt, orchestration
   components/          LocalTime, NextUpCard, TimelineEntryCard, TripChecks,
                        ConnectionLine, TripTabs, AlertBell, AlertsBanner, forms/, lists/
   data/
@@ -98,6 +104,7 @@ src/
     impact.ts          What a delay/cancellation breaks + the next option
     outbox.ts          Browser-side queue of offline changes
     task-status.ts     Status cycle + quick-add parsing (shared by server and browser)
+    import/            Draft format + JSON schema, sanitizer, receipt matching, place→zone
     types.ts           Allowed values for the string "enum" columns
     format.ts          Money, weight and icon helpers
 ```
@@ -239,13 +246,36 @@ npm run build && npm start
 | 4    | Notifications and reminders                                  | ✅     |
 | 5    | Live tracking, disruption impact check, "Simulate delay"     | ✅     |
 | 6    | Offline support and the documents vault                      | ✅     |
-| 7    | **Smart import**: voice message, photo/PDF of a booking, or a shop receipt → AI drafts legs, stays and list updates → you review before saving | |
+| 7    | **Smart import**: voice message, photo/PDF of a booking, or a shop receipt → AI drafts legs, stays and list updates → you review before saving | ✅ |
 
-Step 7 notes:
-- Images and PDFs go straight to Claude; voice is turned into text first
-  (browser dictation, or a speech-to-text adapter).
-- Always a review screen, never a silent save. Times are validated in the
-  place's time zone, the same way the forms do.
-- Receipts mark matching Buy items as bought and fill in the real price.
-- Uploaded files are kept in the documents vault (step 6).
-- A mock parser keeps it working with no API key.
+## Smart import (step 7)
+
+Trip → **✨ Import**. Three ways in:
+
+| Input | What happens |
+| ----- | ------------ |
+| 🎤 Voice | Record (or pick an audio file) → OpenAI `gpt-transcribe` → text → read like pasted text |
+| 📷 Photo / PDF | Ticket, booking confirmation or shop receipt → OpenAI reads the image/PDF |
+| 📝 Paste | A booking email or a note like "ICE 597 from Berlin to Frankfurt on 27 Oct 09:51–14:05. Buy 2 adapters for Dad." |
+
+Everything becomes one **draft** (legs, stays, list items, receipt lines) on a
+**review screen**: untick or edit anything, then **Save**. Nothing is saved
+before that. The app checks every time zone and time (arrival after departure,
+like the forms), flags legs already in your trip, and receipt lines tick off the
+matching Buy item and store the real price ("RITTER SPORT VOLLMILCH 100G" →
+*Ritter Sport chocolates*). The original photo/PDF can be kept in Docs, linked
+to the leg or stay it created.
+
+**Set up OpenAI** — put your key in `.env` yourself (never in chat or git):
+
+```bash
+echo 'OPENAI_API_KEY="sk-..."' >> .env
+```
+
+then restart the server. `OPENAI_MODEL` (default `gpt-6.1-sol`) and
+`OPENAI_TRANSCRIBE_MODEL` (default `gpt-transcribe`) can be changed in `.env`.
+Requests use Structured Outputs (a strict JSON schema) and `store: false`.
+
+**Without a key** pasted text uses a simple built-in reader, and the demo
+receipt / demo voice note show the review screen. Photos, PDFs and real
+recordings need the key.

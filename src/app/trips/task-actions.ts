@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { personIdFor } from "@/server/people";
 import { localToUtc } from "@/lib/time";
 import { parseLatLng } from "@/lib/geo";
 import { findSuggestion, safeJsonArray, suggestionsFor } from "@/lib/rules";
@@ -56,13 +57,6 @@ function refresh(tripId: string) {
   revalidatePath(`/trips/${tripId}/lists`);
 }
 
-/** Find or create the gift recipient by name ("Mom"). */
-async function personId(tripId: string, name: string | null): Promise<string | null> {
-  if (!name) return null;
-  const existing = await prisma.person.findFirst({ where: { tripId, name } });
-  return (existing ?? (await prisma.person.create({ data: { tripId, name } }))).id;
-}
-
 export async function saveTask(tripId: string, taskId: string | null, _prev: FormState, formData: FormData): Promise<FormState> {
   const values = Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const parsed = TaskInput.safeParse(values);
@@ -84,7 +78,7 @@ export async function saveTask(tripId: string, taskId: string | null, _prev: For
     status,
     priceMinor: price,
     currency: price != null ? (rest.currency ?? trip.homeCurrency) : rest.currency,
-    personId: await personId(tripId, person),
+    personId: await personIdFor(tripId, person),
     // A "buy by" date means: by the evening of that day, at home.
     buyBy: rest.list === "BUY" && buyBy ? localToUtc(buyBy, "20:00", trip.homeTimeZone) : null,
     // Where to buy it: used for "shop near your stay" nudges.

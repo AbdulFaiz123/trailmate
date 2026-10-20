@@ -131,10 +131,29 @@ Status taps on one item collapse into the last one; new items carry a
 `clientId` (unique in the database), so a replay can't duplicate them; and a
 change is skipped if the server already has a newer one (last write wins).
 
-## 6. Where Phase 2 plugs in
+## 6. Smart import
 
-- **Smart import** (voice, photo/PDF, receipts → drafts): a new input that
-  produces the same Leg/Stay/Task rows through a review screen.
+```
+ voice ─ gpt-transcribe ─┐
+ photo / PDF ────────────┼─► parser.parse() ─► sanitizeDraft() ─► review screen ─► applyImport()
+ pasted text ────────────┘   (OpenAI or mock)   zones, times,        edit / untick     same checks as
+                                                 duplicates           anything          the forms
+```
+
+- `ImportParser` (`src/server/ai/types.ts`) has two implementations: OpenAI
+  (Responses API with a strict JSON schema; images as `input_image`, PDFs as
+  `input_file`) and a regex-based mock for pasted text.
+- The prompt carries trip context (dates, existing legs, the Buy list, people)
+  so "on the 27th" or "for Mom" resolve, and tells the model to treat document
+  text as data, not instructions.
+- **Nothing an AI returns is trusted**: `sanitizeDraft` re-checks every field,
+  fills missing zones from place names, and adds warnings; the review screen
+  shows them; `applyImport` validates again and saves all-or-nothing.
+- Receipts: `matchPurchases` pairs each line with the best open Buy item by
+  word overlap (case and umlauts folded); the traveler can change any pairing.
+
+## 7. Where Phase 2 plugs in
+
 - **Re-routing**: `findAlternative` already exists on providers; a richer
   planner can return multi-leg alternatives.
 - **Budget**: money is already stored as minor units + currency everywhere.

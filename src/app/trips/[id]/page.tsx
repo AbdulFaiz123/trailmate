@@ -211,6 +211,9 @@ export default async function TripPage({
         <Link href={`/trips/${trip.id}/stays/new`} className="flex-1 rounded-full border border-accent py-3 text-center text-sm font-semibold text-accent">
           + Stay
         </Link>
+        <Link href={`/trips/${trip.id}/import`} className="flex-1 rounded-full border border-accent py-3 text-center text-sm font-semibold text-accent">
+          ✨ Import
+        </Link>
       </nav>
     </div>
   );
