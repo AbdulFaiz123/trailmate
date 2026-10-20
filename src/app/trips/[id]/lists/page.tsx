@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { summarizeBag, baggageWarnings } from "@/lib/baggage";
 import { countryRules, customsReminders, suggestionsFor } from "@/lib/rules";
-import { quickAddTask } from "@/app/trips/task-actions";
 import { formatMoney, modeLabel } from "@/lib/format";
 import { TASK_CATEGORIES } from "@/lib/types";
 import { TripTabs } from "@/components/TripTabs";
@@ -101,7 +100,7 @@ export default async function ListsPage({ params, searchParams }: {
 
       <CustomsCard reminders={customs} />
 
-      <QuickAdd action={quickAddTask.bind(null, trip.id, list)} list={list} newHref={`/trips/${trip.id}/lists/new?list=${list}`} />
+      <QuickAdd tripId={trip.id} list={list} newHref={`/trips/${trip.id}/lists/new?list=${list}`} />
     </div>
   );
 }

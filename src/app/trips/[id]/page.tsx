@@ -16,6 +16,7 @@ import { DisruptionBanner } from "@/components/live/DisruptionBanner";
 import { SimulateControls } from "@/components/live/SimulateControls";
 import { isDisrupted } from "@/lib/impact";
 import { demoToolsEnabled } from "@/server/settings";
+import { OfflineSaver } from "@/components/OfflineSaver";
 import { ScrollToSaved } from "@/components/ScrollToSaved";
 import type { TimelineEntry } from "@/lib/timeline";
 
@@ -35,6 +36,7 @@ export default async function TripPage({
       legs: true,
       stays: true,
       dependencies: true,
+      documents: { select: { id: true, itemId: true, createdAt: true, mimeType: true } },
       tasks: { include: { person: true }, orderBy: { sortOrder: "asc" } },
     },
   });
@@ -67,6 +69,27 @@ export default async function TripPage({
     take: 2,
   });
   const demo = demoToolsEnabled();
+  // Everything the traveler may need without internet, and a version that
+  // changes whenever any of it changes (so the saved copy gets refreshed).
+  const offlinePages = [
+    "/", `/trips/${trip.id}`, `/trips/${trip.id}/lists`, `/trips/${trip.id}/lists?tab=BUY`, `/trips/${trip.id}/lists?tab=PACK`,
+    `/trips/${trip.id}/docs`, "/alerts",
+    ...trip.legs.map((l) => `/trips/${trip.id}/legs/${l.id}`),
+    ...trip.stays.map((s) => `/trips/${trip.id}/stays/${s.id}`),
+    ...trip.documents.map((d) => `/trips/${trip.id}/docs/${d.id}`),
+  ];
+  const offlineDocs = trip.documents.map((d) => `/api/documents/${d.id}/file`);
+  const offlineVersion = String(
+    Math.max(
+      trip.updatedAt.getTime(),
+      ...trip.legs.map((l) => l.updatedAt.getTime()),
+      ...trip.stays.map((s) => s.updatedAt.getTime()),
+      ...trip.tasks.map((t) => t.updatedAt.getTime()),
+      ...trip.documents.map((d) => d.createdAt.getTime()),
+    ) + `-${trip.documents.length}-${trip.tasks.length}`,
+  );
+  const docCount = new Map<string, number>();
+  for (const d of trip.documents) if (d.itemId) docCount.set(d.itemId, (docCount.get(d.itemId) ?? 0) + 1);
   // Lists feed the same "Trip checks" panel: overweight bags and serious
   // customs/airline problems (e.g. a power bank in the checked bag).
   const listWarnings: TripWarning[] = [
@@ -99,6 +122,13 @@ export default async function TripPage({
           {trip.startDate} – {trip.endDate}
           {daysToGo > 0 && <> · leaves in {daysToGo} day{daysToGo === 1 ? "" : "s"}</>}
         </p>
+        <OfflineSaver
+          tripId={trip.id}
+          version={offlineVersion}
+          pages={offlinePages}
+          docs={offlineDocs}
+          hasPdf={trip.documents.some((d) => d.mimeType === "application/pdf")}
+        />
       </div>
 
       <TripTabs tripId={trip.id} active="timeline" />
@@ -146,6 +176,13 @@ export default async function TripPage({
                     <li key={entry.key} id={anchor(entry)} className="scroll-mt-28">
                       {link ? <Link href={link} className="block active:scale-[0.99]">{card}</Link> : card}
                       {stayWarnings.map((w) => <InlineWarning key={w.id} warning={w} />)}
+                      {(() => {
+                        const itemId = entry.kind === "LEG" ? entry.leg.id : entry.kind === "STAY_IN" ? entry.stay.id : null;
+                        const n = itemId ? docCount.get(itemId) : 0;
+                        return n ? (
+                          <Link href={`${link}`} className="mt-1 inline-block px-1 text-[11px] font-medium text-accent">📎 {n} document{n === 1 ? "" : "s"}</Link>
+                        ) : null;
+                      })()}
                       {demo && entry.kind === "LEG" && (
                         <details className="mt-1 px-1 text-xs">
                           <summary className="cursor-pointer text-muted">⏱ Simulate delay</summary>

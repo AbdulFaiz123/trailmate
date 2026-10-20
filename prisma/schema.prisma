@@ -163,6 +163,7 @@ model Task {
   notes        String?
   sortOrder    Int     @default(0)
   suggestionId String? // set when the item was added from a country suggestion
+  clientId     String? @unique // set when created offline: replaying the sync twice can't duplicate it
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

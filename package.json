@@ -11,13 +11,17 @@
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
     "test": "tsx --test tests/*.test.ts",
-    "push:keys": "web-push generate-vapid-keys"
+    "push:keys": "web-push generate-vapid-keys",
+    "predev": "node scripts/copy-pdf-worker.mjs",
+    "prebuild": "node scripts/copy-pdf-worker.mjs"
   },
   "dependencies": {
+    "@paralleldrive/cuid2": "^2.3.1",
     "@prisma/client": "^6.19.3",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "next": "15.5.28",
+    "pdfjs-dist": "^4.10.38",
     "prisma": "^6.19.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",

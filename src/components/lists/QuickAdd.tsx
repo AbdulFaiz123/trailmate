@@ -1,23 +1,41 @@
 "use client";
 
-import { useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { enqueue, flushOutbox, OUTBOX_EVENT, readOutbox } from "@/lib/outbox";
 
-/** Sticky one-line "add item" bar. Supports "3x Haribo" for quantity. */
-export function QuickAdd({ action, list, newHref }: {
-  action: (formData: FormData) => Promise<void>; list: "BUY" | "PACK"; newHref: string;
-}) {
-  const formRef = useRef<HTMLFormElement>(null);
+/** Sticky one-line "add item" bar. "3x Haribo" sets the quantity. Works offline. */
+export function QuickAdd({ tripId, list, newHref }: { tripId: string; list: "BUY" | "PACK"; newHref: string }) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [waiting, setWaiting] = useState<string[]>([]);
+
+  useEffect(() => {
+    const read = () =>
+      setWaiting(readOutbox().flatMap((o) => (o.kind === "addTask" && o.tripId === tripId && o.list === list ? [o.name] : [])));
+    read();
+    window.addEventListener(OUTBOX_EVENT, read);
+    return () => window.removeEventListener(OUTBOX_EVENT, read);
+  }, [tripId, list]);
+
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-md border-t border-line bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+      {waiting.length > 0 && (
+        <p className="mb-2 truncate text-xs text-amber-700 dark:text-amber-400">⏳ Waiting to sync: {waiting.join(", ")}</p>
+      )}
       <form
-        ref={formRef}
-        action={async (fd) => {
-          await action(fd);
-          formRef.current?.reset();
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const name = inputRef.current?.value.trim();
+          if (!name) return;
+          enqueue({ kind: "addTask", tripId, list, name, clientId: crypto.randomUUID() });
+          inputRef.current!.value = "";
+          if ((await flushOutbox()) > 0) router.refresh();
         }}
         className="flex gap-2"
       >
         <input
+          ref={inputRef}
           name="name"
           required
           autoComplete="off"

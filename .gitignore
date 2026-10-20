@@ -44,3 +44,9 @@ next-env.d.ts
 # sqlite
 prisma/*.db
 prisma/*.db-journal
+
+# uploaded documents (step 6)
+/storage/
+
+# copied from node_modules by scripts/copy-pdf-worker.mjs
+/public/pdf.worker.min.mjs

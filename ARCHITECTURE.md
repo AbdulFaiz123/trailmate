@@ -105,7 +105,33 @@ unsent alerts, holds non-urgent ones during quiet hours (in the traveler's
 current zone), and bundles more than two into one summary. Without push the
 same alerts show in the bell, pop-ups, the trip banner and the Alerts page.
 
-## 5. Where Phase 2 plugs in
+## 5. Offline
+
+The app is server-rendered, so "offline" means keeping copies of what the
+server sent (`public/sw.js`):
+
+| Request                       | Strategy                                         |
+| ----------------------------- | ------------------------------------------------ |
+| `/_next/static/*`, icons, pdf.js worker | cache first — file names change when content does |
+| `/api/documents/<id>/file`    | cache first — an uploaded file never changes     |
+| Pages                         | network first (4 s), then the saved copy, then `/offline` |
+| In-app navigation data (RSC)  | network only; if it fails Next does a full page load, which the row above answers |
+| Other `/api/*`                | network only (live data)                         |
+
+**Saving a trip**: the dashboard's `OfflineSaver` sends the service worker a
+list of the trip's pages and document files; the worker fetches each page and
+the scripts it references, and the browser reports any scripts it loaded on
+demand (the PDF viewer) so those are kept too. It re-saves when the trip's
+data changes, and checks the cache itself rather than trusting a "saved" flag
+(an app update clears old caches).
+
+**Writing offline**: list changes go to an outbox in `localStorage`
+(`src/lib/outbox.ts`) and are sent to `/api/sync` when the browser is online.
+Status taps on one item collapse into the last one; new items carry a
+`clientId` (unique in the database), so a replay can't duplicate them; and a
+change is skipped if the server already has a newer one (last write wins).
+
+## 6. Where Phase 2 plugs in
 
 - **Smart import** (voice, photo/PDF, receipts → drafts): a new input that
   produces the same Leg/Stay/Task rows through a review screen.

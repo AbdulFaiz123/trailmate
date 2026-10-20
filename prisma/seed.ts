@@ -7,7 +7,12 @@
 // That is exactly how a traveler reads a ticket.
 import { PrismaClient } from "@prisma/client";
 import { addDays } from "date-fns";
+import { rm } from "node:fs/promises";
+import path from "node:path";
+import { createId } from "@paralleldrive/cuid2";
 import { localDateKey, localToUtc } from "../src/lib/time";
+import { saveFile, storageRoot } from "../src/server/storage";
+import { samplePdf, samplePng } from "./seed-helpers/sample-files";
 
 const prisma = new PrismaClient();
 
@@ -18,6 +23,7 @@ async function main() {
   // Wipe everything so the seed can be re-run safely.
   await prisma.trip.deleteMany();
   await prisma.settings.deleteMany();
+  await rm(path.join(storageRoot(), "documents"), { recursive: true, force: true });
 
   const d = (offset: number) => localDateKey(addDays(new Date(), 7 + offset), BER);
   const D0 = d(0);
@@ -218,9 +224,34 @@ async function main() {
     ],
   });
 
+  // ---------- Sample documents (plain placeholders, stamped SAMPLE) ----------
+  const addDoc = async (p: { kind: string; title: string; fileName: string; mimeType: string; bytes: Buffer; itemKind?: string; itemId?: string }) => {
+    const id = createId();
+    const storagePath = await saveFile(tripId, id, p.mimeType, p.bytes);
+    await prisma.document.create({
+      data: { id, tripId, kind: p.kind, title: p.title, fileName: p.fileName, mimeType: p.mimeType, sizeBytes: p.bytes.length, storagePath, itemKind: p.itemKind ?? null, itemId: p.itemId ?? null },
+    });
+  };
+  await addDoc({
+    kind: "TICKET", title: "ICE 597 ticket (sample)", fileName: "ice-597-sample.pdf", mimeType: "application/pdf", itemKind: "LEG", itemId: ice.id,
+    bytes: samplePdf("Train ticket: ICE 597", [`Berlin Hbf 09:51 -> Frankfurt (Main) Hbf 14:05`, `Date: ${d(0)}`, "Car 7, seat 54", "Booking ref: DB-7K2QX9"]),
+  });
+  await addDoc({
+    kind: "TICKET", title: "LH 752 e-ticket (sample)", fileName: "lh-752-sample.pdf", mimeType: "application/pdf", itemKind: "LEG", itemId: flightOut.id,
+    bytes: samplePdf("Flight e-ticket: LH 752", [`Frankfurt (FRA) 17:30 CET -> Hyderabad (HYD) 07:20 IST (+1)`, `Date: ${d(0)}`, "Seat 42K, gate Z25", "Booking ref: LH-5TRW8P", "Baggage: 1 x 23 kg checked, 8 kg cabin"]),
+  });
+  await addDoc({
+    kind: "BOOKING", title: "Novotel booking (sample)", fileName: "novotel-booking-sample.pdf", mimeType: "application/pdf", itemKind: "STAY", itemId: hotel.id,
+    bytes: samplePdf("Hotel booking", ["Novotel Hyderabad Airport", `Check-in ${d(1)} from 14:00 (latest 23:59)`, `Check-out ${d(2)} by 12:00`, "Booking ref: ACC-88412907"]),
+  });
+  await addDoc({
+    kind: "INSURANCE", title: "Travel insurance card (sample)", fileName: "insurance-sample.png", mimeType: "image/png",
+    bytes: await samplePng("Travel insurance", ["Policy: TM-DEMO-0001", "Emergency line: see your real policy", `Valid ${d(0)} to ${d(14)}`]),
+  });
+
   const counts = {
     legs: await prisma.leg.count(), stays: await prisma.stay.count(),
-    tasks: await prisma.task.count(), dependencies: await prisma.dependency.count(),
+    tasks: await prisma.task.count(), dependencies: await prisma.dependency.count(), documents: await prisma.document.count(),
   };
   console.log(`Seeded "${trip.name}" departing ${D0}`, counts);
 }

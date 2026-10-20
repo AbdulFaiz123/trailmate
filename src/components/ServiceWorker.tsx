@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 
-/** Register /sw.js once the page has loaded. */
+/** Register /sw.js. In development it only handles push (no page caching). */
 export function ServiceWorker() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("Service worker failed", e));
+    const url = process.env.NODE_ENV === "development" ? "/sw.js?mode=dev" : "/sw.js";
+    navigator.serviceWorker.register(url).catch((e) => console.warn("Service worker failed", e));
   }, []);
   return null;
 }

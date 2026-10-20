@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AlertBell } from "@/components/AlertBell";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { OfflineStatus } from "@/components/OfflineStatus";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </Link>
             </nav>
           </header>
+          <OfflineStatus />
           <main className="px-4 pb-24 pt-4">{children}</main>
           <ServiceWorker />
         </div>

@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { localToUtc } from "@/lib/time";
-import { guessCategory } from "@/lib/categorize";
 import { parseLatLng } from "@/lib/geo";
 import { findSuggestion, safeJsonArray, suggestionsFor } from "@/lib/rules";
 import { TASK_CATEGORIES } from "@/lib/types";
@@ -105,34 +104,6 @@ export async function deleteTask(tripId: string, taskId: string) {
   await prisma.document.updateMany({ where: { itemKind: "TASK", itemId: taskId }, data: { itemKind: null, itemId: null } });
   refresh(tripId);
   redirect(listsPath(tripId, task.list));
-}
-
-/** Tap the circle: Buy goes to buy -> bought -> packed; Pack goes todo <-> packed. */
-export async function cycleTaskStatus(tripId: string, taskId: string) {
-  const task = await prisma.task.findUniqueOrThrow({ where: { id: taskId, tripId } });
-  const next =
-    task.list === "BUY"
-      ? ({ TO_BUY: "BOUGHT", BOUGHT: "PACKED", PACKED: "TO_BUY" } as Record<string, string>)[task.status] ?? "TO_BUY"
-      : task.status === "PACKED" ? "TODO" : "PACKED";
-  await prisma.task.update({ where: { id: taskId }, data: { status: next } });
-  refresh(tripId);
-}
-
-export async function quickAddTask(tripId: string, list: "BUY" | "PACK", formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) return;
-  // "3x Haribo" or "3 × Haribo" sets the quantity.
-  const m = name.match(/^(\d{1,3})\s*[x×]\s*(.+)$/i);
-  const quantity = m ? Number(m[1]) : 1;
-  const cleanName = m ? m[2].trim() : name;
-  await prisma.task.create({
-    data: {
-      tripId, list, name: cleanName, quantity, category: guessCategory(cleanName),
-      status: list === "BUY" ? "TO_BUY" : "TODO",
-      bag: "CHECKED",
-    },
-  });
-  refresh(tripId);
 }
 
 export async function addSuggestion(tripId: string, suggestionId: string) {

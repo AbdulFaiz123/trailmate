@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Person, Task } from "@prisma/client";
-import { cycleTaskStatus } from "@/app/trips/task-actions";
+import { StatusToggle } from "./StatusToggle";
 import { formatMoney, formatWeight } from "@/lib/format";
 import { formatDay, relativeFromNow } from "@/lib/time";
 
@@ -22,18 +22,7 @@ export function TaskRow({ task, tripId, homeTimeZone, now }: {
 
   return (
     <li className="flex items-center gap-2 rounded-2xl border border-line bg-surface pr-3">
-      <form action={cycleTaskStatus.bind(null, tripId, task.id)}>
-        <button
-          type="submit"
-          aria-label={`${ui.label}. ${ui.next}`}
-          title={ui.next}
-          className={`flex h-12 w-12 items-center justify-center text-lg ${
-            task.status === "PACKED" ? "" : task.status === "BOUGHT" ? "font-bold text-accent" : "text-muted"
-          }`}
-        >
-          {ui.icon}
-        </button>
-      </form>
+      <StatusToggle tripId={tripId} taskId={task.id} list={task.list} status={task.status} />
       <Link href={`/trips/${tripId}/lists/${task.id}`} className="min-w-0 flex-1 py-2.5">
         <p className={`truncate text-sm font-medium ${done ? "text-muted line-through decoration-1" : ""}`}>
           {task.quantity > 1 && <span className="tabular-nums">{task.quantity} × </span>}

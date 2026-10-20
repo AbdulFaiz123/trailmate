@@ -21,3 +21,6 @@ export const TASK_STATUSES = ["TO_BUY", "BOUGHT", "PACKED", "TODO", "DONE"] as c
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export type ItemKind = "LEG" | "STAY" | "TASK";
+
+export const DOCUMENT_KINDS = ["TICKET", "BOOKING", "VISA", "PASSPORT", "INSURANCE", "OTHER"] as const;
+export type DocumentKind = (typeof DOCUMENT_KINDS)[number];

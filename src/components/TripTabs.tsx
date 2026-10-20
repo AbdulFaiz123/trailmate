@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export function TripTabs({ tripId, active }: { tripId: string; active: "timeline" | "lists" }) {
+export function TripTabs({ tripId, active }: { tripId: string; active: "timeline" | "lists" | "docs" }) {
   const tab = (key: typeof active, href: string, label: string) => (
     <Link
       href={href}
@@ -16,6 +16,7 @@ export function TripTabs({ tripId, active }: { tripId: string; active: "timeline
     <nav aria-label="Trip sections" className="flex gap-1 rounded-full bg-line/60 p-1">
       {tab("timeline", `/trips/${tripId}`, "Timeline")}
       {tab("lists", `/trips/${tripId}/lists`, "Lists & bags")}
+      {tab("docs", `/trips/${tripId}/docs`, "Docs")}
     </nav>
   );
 }

@@ -3,7 +3,7 @@
 One home for everything a traveler needs on a trip: stays, legs, packing and
 shopping lists, and live alerts when something goes wrong.
 
-> Status: **Step 5 of 6** — everything up to live tracking, the disruption impact check and "Simulate delay". See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
+> Status: **Phase 1 complete (steps 1–6)**. Next: step 7, smart import. See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
 
 ## Setup
 
@@ -27,6 +27,7 @@ Useful scripts:
 | `npm run db:studio` | Open Prisma Studio to browse/edit the data         |
 | `npm test`          | Unit tests for checks, baggage, rules, reminders (`tests/`) |
 | `npm run push:keys` | Generate a VAPID key pair for Web Push              |
+| `npm run build && npm start` | Production build — needed to test offline mode |
 
 The demo trip always departs **7 days from today**, so "Next up" and the
 countdowns look realistic whenever you seed.
@@ -39,10 +40,15 @@ tests/
   lists.test.ts        Unit tests for baggage.ts, rules.ts, categorize.ts, geo.ts
   reminders.test.ts    Unit tests for reminders.ts
   impact.test.ts       Unit tests for impact.ts and the DB adapter (fake fetch)
+  offline.test.ts      File-type checks, sample PDF structure, status cycle
+scripts/
+  copy-pdf-worker.mjs  Copies pdf.js's worker to public/ (runs before dev/build)
+storage/               Uploaded documents (git-ignored, created on first upload)
 prisma/
   schema.prisma        Data model (Trip, Leg, Stay, Task, Person, Document,
                        Dependency, Alert, Settings, PushSubscription)
   seed.ts              Demo trip: Berlin → Frankfurt (ICE) → Hyderabad → family home
+  seed-helpers/        Builds the plain "SAMPLE" PDFs/PNG for the demo documents
 src/
   app/
     page.tsx           Trip list
@@ -51,6 +57,8 @@ src/
     trips/[id]/legs/   Add / edit / delete a leg
     trips/[id]/stays/  Add / edit / delete a stay
     trips/[id]/lists/  Buy & Pack lists, baggage meters, suggestions, customs
+    trips/[id]/docs/   Documents vault: list, upload, view (PDF via pdf.js), delete
+    offline/           Shown when a page wasn't saved for offline yet
     trips/actions.ts   Server action: create trip
     trips/item-actions.ts  Server actions: save/delete legs and stays
     trips/task-actions.ts  Server actions: list items, suggestions, baggage
@@ -60,6 +68,8 @@ src/
     api/push/          Save/remove a push subscription, send a test
     api/alerts/        Unread count + latest (polled by the bell)
     api/cron/sweep/    Run the reminder sweep from an external cron
+    api/documents/     Upload (type-checked, 15 MB max); [id]/file serves it
+    api/sync/          Applies changes queued offline (idempotent)
     manifest.ts        PWA manifest (installable, needed for push on iPhone)
   instrumentation.ts   Starts the background scheduler when the server boots
   server/
@@ -69,6 +79,7 @@ src/
     alerts.ts          Store alerts (de-duplicated) and deliver them
     disruption.ts      Poll legs, detect changes, impact check, alert
     transport/         Live status adapters: db-rest (DB live), mock, flight mock
+    storage.ts         Local file storage + "is this really a PDF/image?" checks
   components/          LocalTime, NextUpCard, TimelineEntryCard, TripChecks,
                        ConnectionLine, TripTabs, AlertBell, AlertsBanner, forms/, lists/
   data/
@@ -85,6 +96,8 @@ src/
     reminders.ts       Reminder rules: buy-by, shop nearby, packing, leave now, check-in
     geo.ts             Distance between two points, parse pasted coordinates
     impact.ts          What a delay/cancellation breaks + the next option
+    outbox.ts          Browser-side queue of offline changes
+    task-status.ts     Status cycle + quick-add parsing (shared by server and browser)
     types.ts           Allowed values for the string "enum" columns
     format.ts          Money, weight and icon helpers
 ```
@@ -184,6 +197,38 @@ released by the next real tick if it isn't quiet right now.
 
 Simulation is available in development, or anywhere with `DEMO_TOOLS=1`.
 
+## Documents vault and offline mode (step 6)
+
+**Documents**: the trip's **Docs** tab. Upload a PDF or photo (up to 15 MB)
+and attach it to the whole trip, a leg or a stay; it also shows on that leg's
+or stay's page and as 📎 on the timeline. Files are stored in `storage/`
+(set `STORAGE_DIR`), never in git. The server checks the file's real bytes —
+an `.exe` renamed to `.pdf`, or an SVG, is refused. PDFs are drawn with pdf.js
+so they also show on phones (Android Chrome won't show PDFs inside a page).
+
+**Offline**: opening a trip while online saves it on the device — dashboard,
+both lists, every leg and stay page, the documents and their files (the trip
+says "✓ Available offline · saved 22:45"). With no connection those pages open
+from the saved copy and a banner says you're offline. Ticking items as
+bought/packed and quick-adding still work: the changes wait in an outbox and
+sync when you're back online (repeated taps collapse into one; replaying can't
+create duplicates; a newer change on the server wins).
+
+### Test airplane mode
+
+Offline saving only runs in a production build (in dev it would cache stale code).
+
+```bash
+npm run build && npm start
+```
+
+1. Open http://localhost:3000, open the demo trip and wait for
+   "✓ Available offline".
+2. Turn on airplane mode (or stop the server, or DevTools → Network → Offline).
+3. Reload: the trip, Lists & bags, Docs and the sample e-ticket PDF still open.
+4. Tick "Passport" as packed — it gets an amber dot (waiting to sync).
+5. Go back online: the dot disappears and the change is saved.
+
 ## Roadmap
 
 | Step | What                                                         | Status |
@@ -193,7 +238,7 @@ Simulation is available in development, or anywhere with `DEMO_TOOLS=1`.
 | 3    | Lists, baggage weight, country rules                         | ✅     |
 | 4    | Notifications and reminders                                  | ✅     |
 | 5    | Live tracking, disruption impact check, "Simulate delay"     | ✅     |
-| 6    | Offline support and the documents vault                      |        |
+| 6    | Offline support and the documents vault                      | ✅     |
 | 7    | **Smart import**: voice message, photo/PDF of a booking, or a shop receipt → AI drafts legs, stays and list updates → you review before saving | |
 
 Step 7 notes:
