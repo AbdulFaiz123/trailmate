@@ -10,7 +10,8 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "push:keys": "web-push generate-vapid-keys"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -20,6 +21,7 @@
     "prisma": "^6.19.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "web-push": "^3.6.7",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -28,6 +30,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "15.5.28",
     "tailwindcss": "^4",

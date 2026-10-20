@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { localToUtc } from "@/lib/time";
 import { guessCategory } from "@/lib/categorize";
+import { parseLatLng } from "@/lib/geo";
 import { findSuggestion, safeJsonArray, suggestionsFor } from "@/lib/rules";
 import { TASK_CATEGORIES } from "@/lib/types";
 import type { FormState } from "./actions";
@@ -37,6 +38,13 @@ const TaskInput = z.object({
   price: money,
   currency: z.string().trim().toUpperCase().optional().refine((v) => !v || /^[A-Z]{3}$/.test(v), "3-letter code").transform((v) => v || null),
   buyBy: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]).optional(),
+  placeName: optional,
+  location: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || parseLatLng(v), "Paste coordinates like 17.4170, 78.4380")
+    .transform((v) => (v ? parseLatLng(v) : null)),
   notes: optional,
 });
 
@@ -64,7 +72,7 @@ export async function saveTask(tripId: string, taskId: string | null, _prev: For
     for (const issue of parsed.error.issues) errors[String(issue.path[0])] ??= issue.message;
     return { errors, values };
   }
-  const { person, price, buyBy, ...rest } = parsed.data;
+  const { person, price, buyBy, location, ...rest } = parsed.data;
   const trip = await prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
 
   // Pack-list items are never "to buy"; keep the status consistent with the list.
@@ -80,6 +88,10 @@ export async function saveTask(tripId: string, taskId: string | null, _prev: For
     personId: await personId(tripId, person),
     // A "buy by" date means: by the evening of that day, at home.
     buyBy: rest.list === "BUY" && buyBy ? localToUtc(buyBy, "20:00", trip.homeTimeZone) : null,
+    // Where to buy it: used for "shop near your stay" nudges.
+    placeName: rest.list === "BUY" ? rest.placeName : null,
+    lat: rest.list === "BUY" ? (location?.lat ?? null) : null,
+    lng: rest.list === "BUY" ? (location?.lng ?? null) : null,
   };
   if (taskId) await prisma.task.update({ where: { id: taskId, tripId }, data });
   else await prisma.task.create({ data: { ...data, tripId } });

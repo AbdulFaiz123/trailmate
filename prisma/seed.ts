@@ -207,7 +207,7 @@ async function main() {
       { tripId, list: "BUY", name: "Haribo Goldbären", quantity: 5, category: "FOOD", status: "TO_BUY", personId: nephew.id, weightG: 200, priceMinor: 129, currency: "EUR", bag: "CHECKED", buyBy: buyBy(1), sortOrder: 4 },
       { tripId, list: "BUY", name: "India power adapter (Type D/M)", quantity: 2, category: "ELECTRONICS", status: "TO_BUY", weightG: 80, priceMinor: 1299, currency: "EUR", bag: "CABIN", buyBy: buyBy(4), suggestionId: "IN.adapter", sortOrder: 5 },
       { tripId, list: "BUY", name: "Rupee cash (≈ €150)", quantity: 1, category: "OTHER", status: "TO_BUY", weightG: 10, bag: "CABIN", buyBy: buyBy(2), suggestionId: "IN.cash", notes: "Exchange at Reisebank or withdraw at HYD arrivals", sortOrder: 6 },
-      { tripId, list: "BUY", name: "Mosquito repellent", quantity: 1, category: "MEDICINE", status: "TO_BUY", weightG: 150, priceMinor: 799, currency: "EUR", bag: "CHECKED", buyBy: buyBy(1), suggestionId: "IN.repellent", sortOrder: 7 },
+      { tripId, list: "BUY", name: "Mosquito repellent", quantity: 1, category: "MEDICINE", status: "TO_BUY", weightG: 150, priceMinor: 799, currency: "EUR", bag: "NONE", suggestionId: "IN.repellent", notes: "Cheaper in India — buy it there", placeName: "Apollo Pharmacy, Banjara Hills", timeZone: HYD, lat: 17.417, lng: 78.438, sortOrder: 7 },
 
       // PACK — things I already own
       { tripId, list: "PACK", name: "Passport + e-Visa printout", quantity: 1, category: "DOCUMENTS", status: "TODO", weightG: 60, bag: "CABIN", sortOrder: 1 },

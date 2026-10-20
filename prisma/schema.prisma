@@ -231,7 +231,11 @@ model Alert {
   itemKind  String?
   itemId    String?
   // Same key = same alert; prevents sending "your train is late" 12 times.
-  dedupeKey String  @unique
+  dedupeKey String    @unique
+  urgent    Boolean   @default(false) // urgent alerts ignore quiet hours (e.g. "Leave now")
+  url       String? // where tapping the notification takes you
+  fireAt    DateTime? // when the reminder became due (may be a simulated time)
+  expiresAt DateTime? // after this the alert is stale (e.g. the train has left)
 
   createdAt DateTime  @default(now())
   readAt    DateTime?

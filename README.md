@@ -3,7 +3,7 @@
 One home for everything a traveler needs on a trip: stays, legs, packing and
 shopping lists, and live alerts when something goes wrong.
 
-> Status: **Step 3 of 6** — timeline, stays, legs, trip checks, lists, baggage and country rules.
+> Status: **Step 4 of 6** — timeline, stays, legs, trip checks, lists, baggage, country rules, reminders and notifications.
 
 ## Setup
 
@@ -11,7 +11,7 @@ Requires Node 20+.
 
 ```bash
 npm install
-cp .env.example .env          # only DATABASE_URL for now
+cp .env.example .env          # then: npm run push:keys, paste the keys into .env
 npx prisma migrate dev        # creates prisma/dev.db and the tables
 npm run db:seed               # loads the Berlin → Hyderabad demo trip
 npm run dev                   # http://localhost:3000
@@ -25,7 +25,8 @@ Useful scripts:
 | `npm run db:seed`   | Wipe the database and load the demo trip again     |
 | `npm run db:reset`  | Drop the database, re-run migrations and the seed  |
 | `npm run db:studio` | Open Prisma Studio to browse/edit the data         |
-| `npm test`          | Unit tests for checks, baggage and rules (`tests/`) |
+| `npm test`          | Unit tests for checks, baggage, rules, reminders (`tests/`) |
+| `npm run push:keys` | Generate a VAPID key pair for Web Push              |
 
 The demo trip always departs **7 days from today**, so "Next up" and the
 countdowns look realistic whenever you seed.
@@ -35,7 +36,8 @@ countdowns look realistic whenever you seed.
 ```
 tests/
   checks.test.ts       Unit tests for src/lib/checks.ts
-  lists.test.ts        Unit tests for baggage.ts, rules.ts, categorize.ts
+  lists.test.ts        Unit tests for baggage.ts, rules.ts, categorize.ts, geo.ts
+  reminders.test.ts    Unit tests for reminders.ts
 prisma/
   schema.prisma        Data model (Trip, Leg, Stay, Task, Person, Document,
                        Dependency, Alert, Settings, PushSubscription)
@@ -51,8 +53,20 @@ src/
     trips/actions.ts   Server action: create trip
     trips/item-actions.ts  Server actions: save/delete legs and stays
     trips/task-actions.ts  Server actions: list items, suggestions, baggage
+    alerts/            Alerts list; alerts/open/[id] marks read and redirects
+    settings/          Alert switches, quiet hours, push on/off, dev "pretend time"
+    alert-actions.ts   Server actions: settings, mark read, run sweep at a time
+    api/push/          Save/remove a push subscription, send a test
+    api/alerts/        Unread count + latest (polled by the bell)
+    api/cron/sweep/    Run the reminder sweep from an external cron
+    manifest.ts        PWA manifest (installable, needed for push on iPhone)
+  instrumentation.ts   Starts the background scheduler when the server boots
+  server/
+    scheduler.ts       Every minute: due reminders -> Alerts -> push
+    push.ts            Web Push adapter (timeout, retry, off without keys)
+    settings.ts        The single Settings row
   components/          LocalTime, NextUpCard, TimelineEntryCard, TripChecks,
-                       ConnectionLine, TripTabs, forms/, lists/
+                       ConnectionLine, TripTabs, AlertBell, AlertsBanner, forms/, lists/
   data/
     country-rules.json Editable suggestions + customs/airline rules per country
   lib/
@@ -64,6 +78,8 @@ src/
     baggage.ts         Bag weight totals and over/near-limit warnings
     rules.ts           Reads country-rules.json: suggestions + customs reminders
     categorize.ts      Guesses a category from an item name (quick add)
+    reminders.ts       Reminder rules: buy-by, shop nearby, packing, leave now, check-in
+    geo.ts             Distance between two points, parse pasted coordinates
     types.ts           Allowed values for the string "enum" columns
     format.ts          Money, weight and icon helpers
 ```
@@ -105,6 +121,38 @@ arriving and there is no stay check-in in between.
   - Keywords match whole words (so "gin" doesn't match "original").
   - These are reminders with a link to the official source, **not legal advice**.
 
+## Reminders and notifications (step 4)
+
+A background job (`src/server/scheduler.ts`, started from `src/instrumentation.ts`)
+runs every minute. It asks `src/lib/reminders.ts` which reminders are due,
+stores new ones as **Alerts** (a unique `dedupeKey` means each one is stored
+and sent once), and pushes them.
+
+| Reminder      | When                                                                 |
+| ------------- | -------------------------------------------------------------------- |
+| Buy-by        | 3 days before the buy-by date, the morning of, and once if you missed it |
+| Shop nearby   | During a stay that's within 2 km of a shop on your Buy list          |
+| Packing       | 19:00 the evening before you leave, listing what isn't packed/bought |
+| Leave now     | Departure − your travel buffer (taxis: 5 min). Only for legs you start from a standstill. A delay creates a corrected alert |
+| Check-in      | Flights 24 h before departure; hotels 3 h before check-in            |
+
+- **Push**: turn it on in ⚙️ Settings. Needs VAPID keys in `.env`
+  (`npm run push:keys`). On iPhone, add Trailmate to the Home Screen first.
+- **No push?** Alerts still appear: 🔔 bell count, a pop-up while the app is
+  open, a banner on the trip, and the Alerts page.
+- **Quiet hours** use the time zone you're in at that moment. Only urgent
+  alerts (leave now; cancellations in step 5) are pushed then; the rest wait.
+- More than two alerts at once are sent as one summary notification.
+- Every alert type can be switched off in Settings.
+
+### Testing reminders without waiting days
+
+Settings → **Developer tools** → pick a quick time (Buy-by, Flight check-in,
+Packing evening, Leave now, At a stay near a shop) or any date and time. This
+runs the sweep as if it were that moment. Note: the real background job keeps
+running on the real clock, so alerts held back by pretend quiet hours are
+released by the next real tick if it isn't quiet right now.
+
 ## Roadmap
 
 | Step | What                                                         | Status |
@@ -112,7 +160,7 @@ arriving and there is no stay check-in in between.
 | 1    | Data model, demo trip, timeline                              | ✅     |
 | 2    | Stays, legs, gap/overlap/connection checks                   | ✅     |
 | 3    | Lists, baggage weight, country rules                         | ✅     |
-| 4    | Notifications and reminders                                  |        |
+| 4    | Notifications and reminders                                  | ✅     |
 | 5    | Live tracking, disruption impact check, "Simulate delay"     |        |
 | 6    | Offline support and the documents vault                      |        |
 | 7    | **Smart import**: voice message, photo/PDF of a booking, or a shop receipt → AI drafts legs, stays and list updates → you review before saving | |

@@ -94,3 +94,12 @@ test("travel-size liquids in the cabin are fine", () => {
   const r2 = customsReminders(trip, [task({ name: "Perfume", bag: "CABIN" })]);
   assert.ok(r2.find((x) => x.id === "AIR.liquids"));
 });
+
+test("coordinates pasted from Google Maps", async () => {
+  const { parseLatLng, distanceM } = await import("../src/lib/geo");
+  assert.deepEqual(parseLatLng("17.4170, 78.4380"), { lat: 17.417, lng: 78.438 });
+  assert.equal(parseLatLng("Banjara Hills"), null);
+  assert.equal(parseLatLng("95, 10"), null, "latitude out of range");
+  const m = distanceM({ lat: 17.4156, lng: 78.4347 }, { lat: 17.417, lng: 78.438 });
+  assert.ok(m > 350 && m < 400, `≈380 m, got ${m}`);
+});

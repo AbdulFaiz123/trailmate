@@ -143,7 +143,7 @@ export function legName(leg: Pick<LegLike, "number" | "mode" | "toName">): strin
 }
 
 /** Which time zone is the traveler in at instant `t`? */
-function zoneAt(t: Date, legs: LegLike[], homeTz: string): string {
+export function zoneAt(t: Date, legs: LegLike[], homeTz: string): string {
   let tz = homeTz;
   for (const leg of legs) {
     if (leg.departureAt > t) break;

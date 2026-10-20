@@ -70,6 +70,8 @@ export function taskToForm(
     weightG: task.weightG != null ? String(task.weightG) : "",
     price: money(task.priceMinor), currency: task.currency ?? "",
     buyBy: task.buyBy ? localDateKey(task.buyBy, homeTimeZone) : "",
+    placeName: task.placeName ?? "",
+    location: task.lat != null && task.lng != null ? `${task.lat}, ${task.lng}` : "",
     notes: task.notes ?? "",
   };
 }

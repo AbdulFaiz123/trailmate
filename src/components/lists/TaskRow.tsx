@@ -43,6 +43,7 @@ export function TaskRow({ task, tripId, homeTimeZone, now }: {
         <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted">
           {task.list === "BUY" && <span className={task.status === "TO_BUY" ? "" : "text-accent"}>{ui.label}</span>}
           {task.bag && task.bag !== "NONE" && <span>{task.bag === "CABIN" ? "🎒 cabin" : "🧳 checked"}</span>}
+          {task.placeName && task.status === "TO_BUY" && <span>📍 {task.placeName}</span>}
           {weight && <span>{weight}</span>}
           {price && <span>{price}</span>}
           {task.list === "BUY" && task.buyBy && task.status === "TO_BUY" && (

@@ -11,6 +11,7 @@ import { runTripChecks, type TripWarning } from "@/lib/checks";
 import { baggageWarnings, summarizeBag } from "@/lib/baggage";
 import { customsReminders } from "@/lib/rules";
 import { TripTabs } from "@/components/TripTabs";
+import { AlertsBanner } from "@/components/AlertsBanner";
 import { ScrollToSaved } from "@/components/ScrollToSaved";
 import type { TimelineEntry } from "@/lib/timeline";
 
@@ -40,6 +41,11 @@ export default async function TripPage({
   const days = groupByDay(entries);
   const { next, current } = findNextUp(entries, now);
   const { connections, warnings: timelineWarnings } = runTripChecks(trip);
+  const newAlerts = await prisma.alert.findMany({
+    where: { tripId: trip.id, readAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+    orderBy: [{ urgent: "desc" }, { createdAt: "desc" }],
+    take: 2,
+  });
   // Lists feed the same "Trip checks" panel: overweight bags and serious
   // customs/airline problems (e.g. a power bank in the checked bag).
   const listWarnings: TripWarning[] = [
@@ -76,6 +82,7 @@ export default async function TripPage({
 
       <TripTabs tripId={trip.id} active="timeline" />
       <ScrollToSaved target={saved} />
+      <AlertsBanner alerts={newAlerts} />
       <NextUpCard next={next} current={current} now={now} isEmpty={entries.length === 0} />
 
       <TripChecks warnings={warnings} tripId={trip.id} />

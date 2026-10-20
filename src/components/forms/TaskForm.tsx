@@ -6,6 +6,7 @@ import { Field, inputClass } from "@/components/form";
 import { modeLabel } from "@/lib/format";
 import { TASK_CATEGORIES } from "@/lib/types";
 import { SubmitButton } from "./LegForm";
+import { WhereToBuy } from "./WhereToBuy";
 
 type SaveAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -80,6 +81,8 @@ export function TaskForm({ save, defaults, people }: { save: SaveAction; default
           <input name="currency" defaultValue={v.currency} maxLength={3} className={`${inputClass} uppercase`} />
         </Field>
       </div>
+
+      {list === "BUY" && <WhereToBuy defaults={v} error={err.location} />}
 
       {list === "BUY" && (
         <Field label="Buy by (optional)" hint="You'll get a reminder (step 4). Counts as 20:00 at home that day." error={err.buyBy}>
