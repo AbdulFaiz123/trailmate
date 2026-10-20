@@ -251,8 +251,12 @@ function arrivalLegFor(stay: StayLike, legs: LegLike[], deps: DepLike[]): LegLik
   const linked = deps.find((d) => d.toKind === "STAY" && d.toId === stay.id && d.fromKind === "LEG");
   if (linked) return legs.find((l) => l.id === linked.fromId);
   // Fallback: the first leg that arrives between 18 h before check-in and
-  // check-out. Legs later in the stay (day trips) are ignored.
+  // check-out. Legs later in the stay (day trips) are ignored, and so are
+  // stopovers: a leg followed by a connecting leg (landing in Dubai on the way
+  // to Goa) isn't where you arrive.
+  const stopovers = new Set(findConnections(legs, [stay], deps).map((c) => c.fromLegId));
   return [...legs]
+    .filter((l) => !stopovers.has(l.id))
     .filter((l) => l.arrivalAt <= stay.checkOutAt && l.arrivalAt.getTime() >= stay.checkInAt.getTime() - 18 * HOUR)
     .sort((x, y) => x.arrivalAt.getTime() - y.arrivalAt.getTime())[0];
 }

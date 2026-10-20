@@ -10,7 +10,9 @@ const AUDIO_TYPES = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/mp3", "audi
 export async function POST(req: Request) {
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Expected a form" }, { status: 400 });
-  const tripId = String(form.get("tripId") ?? "");
+  // No tripId + newTrip=1: the traveler is creating a trip from this input.
+  const tripId = String(form.get("tripId") ?? "") || null;
+  if (!tripId && form.get("newTrip") !== "1") return NextResponse.json({ error: "Missing trip" }, { status: 400 });
   const mode = String(form.get("mode") ?? "");
   const file = form.get("file");
 

@@ -74,8 +74,18 @@ function parseText(text: string, ctx: ImportContext): ImportDraft {
     if (times.length === 1) warnings.push(`${number ?? "A leg"}: only one time found — add the arrival.`);
   }
 
+  // "...from Berlin to Hyderabad from 27 Oct to 10 Nov" / "back on 10 Nov" -> trip dates for a new trip
+  const range = text.match(/\bfrom\s+(\d{1,2}(?:st|nd|rd|th)?\.?\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})\s+(?:to|until|till)\s+(\d{1,2}(?:st|nd|rd|th)?\.?\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})/i);
+  const back = text.match(/\b(?:back|return(?:ing)?|coming back)\s+(?:on\s+)?(\d{1,2}(?:st|nd|rd|th)?\.?\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})/i);
+  const trip = {
+    ...EMPTY_DRAFT.trip,
+    startDate: range ? findDate(range[1], ctx) : null,
+    endDate: range ? findDate(range[2], ctx) : back ? findDate(back[1], ctx) : null,
+  };
+
   return {
     ...EMPTY_DRAFT,
+    trip,
     kind: legs.length ? "booking" : items.length ? "notes" : "unknown",
     summary: legs.length || items.length
       ? `Found ${legs.length} leg${legs.length === 1 ? "" : "s"} and ${items.length} item${items.length === 1 ? "" : "s"} (simple text reader — add an OpenAI key for better results).`
@@ -98,6 +108,12 @@ export const DEMOS = {
     ],
   }),
   voice: (): string => "I need to buy 2 power adapters for Dad. Pack my sunglasses. On the 9th I take the train from Hyderabad to Vijayawada at 07:10, arriving 12:40.",
+  /** A spoken description of a whole new trip. */
+  newTripVoice: (year: number): string =>
+    `I'm visiting my family in Hyderabad. I leave Berlin on 27 Oct ${year} and I'm back on 10 Nov. ` +
+    `ICE 597 from Berlin Hbf to Frankfurt (Main) Hbf on 27 Oct ${year}, 09:51-14:05. ` +
+    `LH 752 from Frankfurt Airport to Hyderabad Airport on 27 Oct ${year} at 17:30. ` +
+    `Buy chocolates for Mom.`,
 };
 
 export class MockParser implements ImportParser {

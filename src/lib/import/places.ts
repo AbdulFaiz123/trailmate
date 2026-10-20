@@ -11,7 +11,7 @@ const ZONES: [RegExp, string][] = [
   [/\b(dubai|dxb)\b/i, "Asia/Dubai"],
   [/\b(doha|doh)\b/i, "Asia/Qatar"],
   [/\b(abu dhabi|auh)\b/i, "Asia/Dubai"],
-  [/\b(hyderabad|secunderabad|shamshabad|banjara|hyd|delhi|new delhi|del|mumbai|bombay|bom|bengaluru|bangalore|blr|chennai|maa|kolkata|ccu|pune|pnq|goa|goi|kochi|cok|ahmedabad|amd|jaipur|jai|vijayawada|bza|visakhapatnam|vizag|vtz|tirupati|warangal|lucknow|lko|agra|varanasi|vns|amritsar|atq|udaipur|mysuru|mysore|coimbatore|cjb|madurai|ixm|thiruvananthapuram|trivandrum|trv|nagpur|nag|bhopal|indore|idr|patna|pat|guwahati|gau|bhubaneswar|bbi|chandigarh|ixc|srinagar|sxr|india)\b/i, "Asia/Kolkata"],
+  [/\b(hyderabad|secunderabad|shamshabad|banjara|hyd|delhi|new delhi|del|mumbai|bombay|bom|bengaluru|bangalore|blr|chennai|maa|kolkata|ccu|pune|pnq|goa|goi|kochi|cok|ahmedabad|amd|jaipur|jai|vijayawada|bza|visakhapatnam|vizag|vtz|tirupati|warangal|lucknow|lko|agra|varanasi|vns|amritsar|atq|udaipur|mysuru|mysore|coimbatore|cjb|madurai|ixm|thiruvananthapuram|trivandrum|trv|nagpur|nag|bhopal|indore|idr|patna|pat|guwahati|gau|bhubaneswar|bbi|chandigarh|ixc|srinagar|sxr|palolem|panaji|panjim|margao|calangute|anjuna|gox|india)\b/i, "Asia/Kolkata"],
   [/\b(new york|jfk|ewr|newark)\b/i, "America/New_York"],
 ];
 

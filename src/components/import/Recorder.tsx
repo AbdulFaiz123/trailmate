@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const MAX_SECONDS = 120;
 
 /** Record a voice message with the phone's microphone (MediaRecorder). */
-export function Recorder({ onDone, disabled }: { onDone: (audio: File) => void; disabled?: boolean }) {
+export function Recorder({ onDone, disabled, hint }: { onDone: (audio: File) => void; disabled?: boolean; hint?: string }) {
   const [state, setState] = useState<"idle" | "recording" | "denied" | "unsupported">("idle");
   const [seconds, setSeconds] = useState(0);
   const recorder = useRef<MediaRecorder | null>(null);
@@ -70,7 +70,7 @@ export function Recorder({ onDone, disabled }: { onDone: (audio: File) => void; 
           ? `Recording… ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} — tap to stop`
           : state === "denied"
             ? "Microphone blocked. Allow it in the browser’s site settings, or pick an audio file."
-            : "Tap and say what you booked or need, e.g. “ICE 597 from Berlin to Frankfurt on the 27th at 9:51, and buy chocolates for Mom.”"}
+            : hint ?? "Tap and say what you booked or need, e.g. “ICE 597 from Berlin to Frankfurt on the 27th at 9:51, and buy chocolates for Mom.”"}
       </p>
     </div>
   );

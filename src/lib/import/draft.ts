@@ -59,9 +59,28 @@ export type DraftPurchase = {
   buyListItem: string | null;
 };
 
+/** Trip details, filled only when the import is creating a new trip. */
+export type DraftTrip = {
+  name: string | null;
+  origin: string | null; // "Berlin, Germany"
+  destination: string | null; // "Hyderabad, India"
+  originCountry: string | null; // ISO alpha-2
+  destinationCountry: string | null;
+  startDate: string | null; // YYYY-MM-DD
+  endDate: string | null;
+  homeTimeZone: string | null;
+  homeCurrency: string | null;
+};
+
+export const EMPTY_TRIP: DraftTrip = {
+  name: null, origin: null, destination: null, originCountry: null, destinationCountry: null,
+  startDate: null, endDate: null, homeTimeZone: null, homeCurrency: null,
+};
+
 export type ImportDraft = {
   kind: "booking" | "receipt" | "notes" | "unknown";
   summary: string;
+  trip: DraftTrip;
   legs: DraftLeg[];
   stays: DraftStay[];
   items: DraftItem[];
@@ -71,7 +90,7 @@ export type ImportDraft = {
 };
 
 export const EMPTY_DRAFT: ImportDraft = {
-  kind: "unknown", summary: "", legs: [], stays: [], items: [], purchases: [], shopName: null, warnings: [],
+  kind: "unknown", summary: "", trip: EMPTY_TRIP, legs: [], stays: [], items: [], purchases: [], shopName: null, warnings: [],
 };
 
 // ------------------------------------------------------------------ JSON schema
@@ -91,6 +110,17 @@ const confidence = { type: "string", enum: ["high", "medium", "low"] };
 export const DRAFT_JSON_SCHEMA = obj({
   kind: { type: "string", enum: ["booking", "receipt", "notes", "unknown"] },
   summary: { ...str, description: "One short sentence: what this input is." },
+  trip: obj({
+    name: { ...nstr, description: "Short trip name, e.g. 'Family visit to Hyderabad'. Null unless creating a new trip." },
+    origin: { ...nstr, description: "Where the trip starts, as 'City, Country'" },
+    destination: { ...nstr, description: "Main destination, as 'City, Country'" },
+    originCountry: { ...nstr, description: "ISO 3166-1 alpha-2, e.g. DE" },
+    destinationCountry: { ...nstr, description: "ISO 3166-1 alpha-2, e.g. IN" },
+    startDate: { ...nstr, description: "YYYY-MM-DD, the day the traveler leaves" },
+    endDate: { ...nstr, description: "YYYY-MM-DD, the day the traveler is back" },
+    homeTimeZone: { ...nstr, description: "IANA zone where the traveler lives (usually the origin's)" },
+    homeCurrency: { ...nstr, description: "ISO 4217 currency of the traveler's home country" },
+  }),
   legs: {
     type: "array",
     items: obj({

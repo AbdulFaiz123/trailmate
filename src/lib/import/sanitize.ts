@@ -1,7 +1,7 @@
 // Check and tidy whatever a parser returned before the traveler sees it.
 // Parsers (especially AI ones) can return odd values; nothing here trusts them.
 import { fromLocalInput, isValidTimeZone } from "../time";
-import type { ImportDraft } from "./draft";
+import { EMPTY_TRIP, type DraftTrip, type ImportDraft } from "./draft";
 import { guessZone } from "./places";
 
 const LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -22,7 +22,13 @@ function zone(raw: unknown, place: string): string | null {
   return guessZone(place);
 }
 
-export function sanitizeDraft(raw: Partial<ImportDraft> | null | undefined, existing: { legKeys: string[] } = { legKeys: [] }): ImportDraft {
+export type NewTripDefaults = { homeTimeZone: string; homeCurrency: string };
+
+export function sanitizeDraft(
+  raw: Partial<ImportDraft> | null | undefined,
+  existing: { legKeys: string[] } = { legKeys: [] },
+  newTrip?: NewTripDefaults,
+): ImportDraft {
   const warnings = (Array.isArray(raw?.warnings) ? raw!.warnings : []).map((w) => clip(w, 300)).filter(Boolean).slice(0, MAX);
 
   const legs = (Array.isArray(raw?.legs) ? raw!.legs : []).slice(0, MAX).map((l) => {
@@ -54,10 +60,19 @@ export function sanitizeDraft(raw: Partial<ImportDraft> | null | undefined, exis
   const stays = (Array.isArray(raw?.stays) ? raw!.stays : []).slice(0, MAX).map((s) => {
     const name = clip(s?.name) || "Stay";
     const address = nclip(s?.address);
+    // A stay given only as dates ("from the 6th to the 18th") gets the usual
+    // 15:00 check-in / 11:00 check-out, with a note that we assumed them.
+    const dateOnly = (v: unknown, hhmm: string) => {
+      if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return null;
+      warnings.push(`${name}: no ${hhmm === "15:00" ? "check-in" : "check-out"} time given — assumed ${hhmm}.`);
+      return `${v.trim()}T${hhmm}`;
+    };
     const stay = {
       kind: pick(s?.kind, ["HOTEL", "AIRBNB", "FAMILY", "OTHER"] as const, "HOTEL"),
       name, address, timeZone: zone(s?.timeZone, `${name} ${address ?? ""}`),
-      checkInLocal: local(s?.checkInLocal), checkOutLocal: local(s?.checkOutLocal), latestCheckInLocal: local(s?.latestCheckInLocal),
+      checkInLocal: local(s?.checkInLocal) ?? dateOnly(s?.checkInLocal, "15:00"),
+      checkOutLocal: local(s?.checkOutLocal) ?? dateOnly(s?.checkOutLocal, "11:00"),
+      latestCheckInLocal: local(s?.latestCheckInLocal),
       bookingRef: nclip(s?.bookingRef, 40), price: money(s?.price), currency: ccy(s?.currency),
       confidence: pick(s?.confidence, ["high", "medium", "low"] as const, "low"),
     };
@@ -80,11 +95,68 @@ export function sanitizeDraft(raw: Partial<ImportDraft> | null | undefined, exis
     buyListItem: nclip(p?.buyListItem, 120),
   }));
 
+  const trip = newTrip ? sanitizeTrip(raw?.trip, legs, stays, newTrip, warnings) : EMPTY_TRIP;
+
   return {
     kind: pick(raw?.kind, ["booking", "receipt", "notes", "unknown"] as const, "unknown"),
     summary: clip(raw?.summary, 300),
-    legs, stays, items, purchases,
+    trip, legs, stays, items, purchases,
     shopName: nclip(raw?.shopName, 120),
     warnings: [...new Set(warnings)],
+  };
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const date = (s: unknown) => (typeof s === "string" && DATE.test(s.trim()) ? s.trim() : null);
+const country = (s: unknown) => (typeof s === "string" && /^[A-Za-z]{2}$/.test(s.trim()) ? s.trim().toUpperCase() : null);
+
+/** City part of "Hyderabad Airport (HYD)" or "Hyderabad, India". */
+function city(place: string): string {
+  return place.split(/[,(]/)[0].replace(/\b(airport|hbf|hauptbahnhof|station|central|intl\.?|international)\b/gi, "").trim() || place;
+}
+
+/**
+ * Trip details for a new trip, filling gaps from the legs and stays:
+ * dates from the first departure / last arrival, places from the first
+ * journey (Berlin -> Frankfurt -> Hyderabad means destination Hyderabad).
+ */
+function sanitizeTrip(raw: Partial<DraftTrip> | undefined, legs: ImportDraft["legs"], stays: ImportDraft["stays"], d: NewTripDefaults, warnings: string[]): DraftTrip {
+  const sorted = legs.filter((l) => l.departureLocal).sort((a, b) => a.departureLocal!.localeCompare(b.departureLocal!));
+  const days = [
+    ...sorted.flatMap((l) => [l.departureLocal!.slice(0, 10), l.arrivalLocal?.slice(0, 10) ?? ""]),
+    ...stays.flatMap((s) => [s.checkInLocal?.slice(0, 10) ?? "", s.checkOutLocal?.slice(0, 10) ?? ""]),
+  ].filter(Boolean).sort();
+
+  // The first journey: legs that follow each other within 12 hours. Each time
+  // is converted with its own zone, so 07:20 in Hyderabad compares correctly
+  // with 17:30 in Frankfurt.
+  const utc = (local: string, tz: string | null) => fromLocalInput(local, tz ?? "UTC").getTime();
+  let chainEnd = sorted[0];
+  for (let i = 1; i < sorted.length && sorted[i - 1].arrivalLocal; i++) {
+    const prev = sorted[i - 1];
+    const gapH = (utc(sorted[i].departureLocal!, sorted[i].fromTimeZone) - utc(prev.arrivalLocal!, prev.toTimeZone)) / 3_600_000;
+    if (gapH < 0 || gapH > 12) break;
+    chainEnd = sorted[i];
+  }
+
+  const origin = nclip(raw?.origin, 120) ?? (sorted[0] ? city(sorted[0].fromName) : null);
+  const destination = nclip(raw?.destination, 120) ?? (chainEnd ? city(chainEnd.toName) : stays[0] ? city(stays[0].address ?? stays[0].name) : null);
+  const startDate = date(raw?.startDate) ?? days[0] ?? null;
+  let endDate = date(raw?.endDate) ?? (days.length > 1 ? days[days.length - 1] : null);
+  if (startDate && endDate && endDate < startDate) endDate = null;
+  if (!startDate) warnings.push("When does the trip start? Add the start date.");
+  if (startDate && !endDate) warnings.push("When are you back? Add the end date.");
+
+  const homeTz = typeof raw?.homeTimeZone === "string" && isValidTimeZone(raw.homeTimeZone) ? raw.homeTimeZone
+    : sorted[0]?.fromTimeZone ?? d.homeTimeZone;
+
+  return {
+    name: nclip(raw?.name, 80) ?? (destination ? `Trip to ${city(destination)}` : null),
+    origin, destination,
+    originCountry: country(raw?.originCountry),
+    destinationCountry: country(raw?.destinationCountry),
+    startDate, endDate,
+    homeTimeZone: homeTz,
+    homeCurrency: ccy(raw?.homeCurrency) ?? d.homeCurrency,
   };
 }

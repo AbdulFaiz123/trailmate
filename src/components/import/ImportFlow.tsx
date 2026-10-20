@@ -4,18 +4,25 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ImportDraft } from "@/lib/import/draft";
 import type { PurchaseMatch } from "@/lib/import/match";
-import { applyImport } from "@/app/trips/import-actions";
+import { applyImport, createTripFromImport } from "@/app/trips/import-actions";
+import { TripCard, tripFieldsFrom } from "./TripCard";
 import { Recorder } from "./Recorder";
 import { ReviewDraft, type EditItem, type EditLeg, type EditPurchase, type EditStay } from "./ReviewDraft";
 
 type Result = { draft: ImportDraft; matches: PurchaseMatch[]; transcript: string | null; engine: "openai" | "mock" | "demo" };
 type Tab = "voice" | "file" | "text";
 
-export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
-  tripId: string; engine: "openai" | "mock"; model: string; zones: string[]; openTasks: { id: string; name: string }[];
+/**
+ * `tripId` = add to that trip. `tripId = null` = create a new trip from what
+ * the traveler says or uploads (the review screen then starts with a Trip card).
+ */
+export function ImportFlow({ tripId, engine, model, zones, openTasks, initialTab = "file" }: {
+  tripId: string | null; engine: "openai" | "mock"; model: string; zones: string[]; openTasks: { id: string; name: string }[]; initialTab?: Tab;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("file");
+  const newTrip = tripId === null;
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tripFields, setTripFields] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<"" | "reading" | "saving">("");
   const [error, setError] = useState("");
   const [errorField, setErrorField] = useState<string>();
@@ -33,13 +40,15 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
     setBusy("reading");
     setError("");
     setResult(null);
-    form.set("tripId", tripId);
+    if (tripId) form.set("tripId", tripId);
+    else form.set("newTrip", "1");
     try {
       const res = await fetch("/api/import", { method: "POST", body: form, signal: AbortSignal.timeout(150_000) });
       const data = (await res.json()) as Result & { error?: string };
       if (!res.ok) throw new Error(data.error ?? `Failed (${res.status})`);
       setSource(file);
       setResult(data);
+      if (newTrip) setTripFields(tripFieldsFrom(data.draft.trip));
       const dupes = data.draft.warnings.filter((w) => /already in your trip/.test(w)).join(" ");
       setLegs(data.draft.legs.map((l) => ({ ...l, include: !(l.number && dupes.includes(l.number)) })));
       setStays(data.draft.stays.map((s) => ({ ...s, include: true })));
@@ -68,36 +77,58 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
     void read(fd, null);
   };
 
-  const count = legs.filter((l) => l.include).length + stays.filter((s) => s.include).length + items.filter((i) => i.include).length + purchases.filter((p) => p.action !== "IGNORE").length;
+  const tripCount = newTrip ? 1 : 0;
+  const count = tripCount + legs.filter((l) => l.include).length + stays.filter((s) => s.include).length + items.filter((i) => i.include).length + purchases.filter((p) => p.action !== "IGNORE").length;
+
+  /** Store the original file in the trip's Docs, attached to `attachTo` ("LEG:id" / "STAY:id" / "TRIP"). */
+  async function keepOriginal(targetTripId: string, attachTo: string): Promise<string | null> {
+    if (!source || !keepFile) return null;
+    const fd = new FormData();
+    fd.set("tripId", targetTripId);
+    fd.set("attachTo", attachTo);
+    fd.set("file", source);
+    fd.set("kind", result?.draft.kind === "receipt" ? "OTHER" : legs.some((l) => l.include) ? "TICKET" : "BOOKING");
+    const d = result?.draft;
+    const firstLeg = legs.find((l) => l.include);
+    const firstStay = stays.find((x) => x.include);
+    fd.set("title",
+      d?.kind === "receipt" ? `Receipt${d.shopName ? ` · ${d.shopName}` : ""}`
+      : firstLeg ? `${firstLeg.number ?? firstLeg.mode.toLowerCase()} ${firstLeg.fromName} → ${firstLeg.toName}`.slice(0, 120)
+      : firstStay ? `Booking · ${firstStay.name}`.slice(0, 120)
+      : source.name.replace(/\.[^.]+$/, ""));
+    const up = await fetch("/api/documents", { method: "POST", body: fd });
+    return up.ok ? ((await up.json()) as { id: string }).id : null;
+  }
 
   async function save() {
     setBusy("saving");
     setError("");
     setErrorField(undefined);
     try {
-      let documentId: string | null = null;
-      if (source && keepFile) {
-        const fd = new FormData();
-        fd.set("tripId", tripId);
-        fd.set("file", source);
-        fd.set("kind", result?.draft.kind === "receipt" ? "OTHER" : legs.some((l) => l.include) ? "TICKET" : "BOOKING");
-        const d = result?.draft;
-        const firstLeg = legs.find((l) => l.include);
-        const firstStay = stays.find((x) => x.include);
-        fd.set("title",
-          d?.kind === "receipt" ? `Receipt${d.shopName ? ` · ${d.shopName}` : ""}`
-          : firstLeg ? `${firstLeg.number ?? firstLeg.mode.toLowerCase()} ${firstLeg.fromName} → ${firstLeg.toName}`.slice(0, 120)
-          : firstStay ? `Booking · ${firstStay.name}`.slice(0, 120)
-          : source.name.replace(/\.[^.]+$/, ""));
-        const up = await fetch("/api/documents", { method: "POST", body: fd });
-        if (up.ok) documentId = ((await up.json()) as { id: string }).id;
-      }
-      const r = await applyImport(tripId, {
+      const payload = {
         // Missing values become "" so the server's checks name exactly what to fix.
         legs: legs.map((l) => ({ ...l, fromTimeZone: l.fromTimeZone ?? "", toTimeZone: l.toTimeZone ?? "", departureLocal: l.departureLocal ?? "", arrivalLocal: l.arrivalLocal ?? "" })),
         stays: stays.map((s) => ({ ...s, timeZone: s.timeZone ?? "", checkInLocal: s.checkInLocal ?? "", checkOutLocal: s.checkOutLocal ?? "" })),
-        items, purchases, documentId,
-      });
+        items, purchases, documentId: null,
+      };
+
+      if (newTrip) {
+        const r = await createTripFromImport(tripFields, payload);
+        if (!r.ok) {
+          setError(r.error);
+          setErrorField(r.field?.split(".").slice(0, 2).join("."));
+          return;
+        }
+        // The trip exists now: keep the ticket, linked to the first leg/stay it created.
+        const [kind, id] = r.focus?.split(/-(.+)/) ?? [];
+        await keepOriginal(r.tripId, kind && id ? `${kind.toUpperCase()}:${id}` : "TRIP");
+        router.push(`/trips/${r.tripId}${r.focus ? `?saved=${r.focus}` : ""}`);
+        router.refresh();
+        return;
+      }
+
+      const documentId = await keepOriginal(tripId!, "TRIP");
+      const r = await applyImport(tripId!, { ...payload, documentId });
       if (!r.ok) {
         setError(r.error);
         setErrorField(r.field?.split(".").slice(0, 2).join("."));
@@ -128,7 +159,9 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
               <>
                 {engine === "openai" ? (
                   <>
-                    <Recorder disabled={!!busy} onDone={(f) => sendFile(f, "audio")} />
+                    <Recorder disabled={!!busy} onDone={(f) => sendFile(f, "audio")} hint={newTrip
+                      ? "Tap and tell me about the trip: where you go, when you leave and come back, how you travel — e.g. “I fly from Berlin to Hyderabad on 27 October to visit family and I’m back on 10 November.”"
+                      : undefined} />
                     <label className="block text-center text-xs text-accent underline">
                       or choose an audio file
                       <input type="file" accept="audio/*" className="sr-only" onChange={(e) => e.target.files?.[0] && sendFile(e.target.files[0], "audio")} />
@@ -137,7 +170,9 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
                 ) : (
                   <p className="text-sm text-muted">Voice messages need OpenAI to turn speech into text. Add <code className="font-mono">OPENAI_API_KEY</code> to <code className="font-mono">.env</code>.</p>
                 )}
-                <button type="button" onClick={() => sendDemo("voice")} className="w-full rounded-full border border-line py-2 text-xs">Try the voice demo (sample transcript)</button>
+                <button type="button" onClick={() => sendDemo("voice")} className="w-full rounded-full border border-line py-2 text-xs">
+                  {newTrip ? "Try a demo: a spoken trip description" : "Try the voice demo (sample transcript)"}
+                </button>
               </>
             )}
             {tab === "file" && (
@@ -145,12 +180,12 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
                 <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-line p-6 text-center">
                   <span className="block text-3xl" aria-hidden>📄</span>
                   <span className="mt-1 block text-sm font-medium">Choose or take a photo, or pick a PDF</span>
-                  <span className="block text-xs text-muted">Ticket, booking confirmation or shop receipt · up to 15 MB</span>
+                  <span className="block text-xs text-muted">{newTrip ? "Flight or train ticket, hotel or Airbnb booking, itinerary" : "Ticket, booking confirmation or shop receipt"} · up to 15 MB</span>
                   <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" disabled={!!busy}
                     onChange={(e) => e.target.files?.[0] && sendFile(e.target.files[0], "file")} />
                 </label>
                 {engine !== "openai" && <p className="text-xs text-muted">Reading photos and PDFs needs <code className="font-mono">OPENAI_API_KEY</code> in <code className="font-mono">.env</code>.</p>}
-                <button type="button" onClick={() => sendDemo("receipt")} className="w-full rounded-full border border-line py-2 text-xs">Try the demo receipt</button>
+                {!newTrip && <button type="button" onClick={() => sendDemo("receipt")} className="w-full rounded-full border border-line py-2 text-xs">Try the demo receipt</button>}
               </>
             )}
             {tab === "text" && (
@@ -187,7 +222,9 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
             )}
           </section>
 
-          {count === 0 && legs.length + stays.length + items.length + purchases.length === 0 ? (
+          {newTrip && <TripCard fields={tripFields} setFields={setTripFields} zones={zones} error={errorField?.startsWith("trip")} />}
+
+          {!newTrip && count === 0 && legs.length + stays.length + items.length + purchases.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">Nothing to add from this one.</p>
           ) : (
             <ReviewDraft draft={result.draft} legs={legs} setLegs={setLegs} stays={stays} setStays={setStays} items={items} setItems={setItems}
@@ -205,7 +242,7 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks }: {
             <button type="button" onClick={() => { setResult(null); setError(""); }} className="rounded-full border border-line px-4 py-3 text-sm">Start over</button>
             <button type="button" onClick={save} disabled={busy === "saving" || count === 0}
               className="flex-1 rounded-full bg-accent py-3 text-sm font-semibold text-white disabled:opacity-50 dark:text-[#04201c]">
-              {busy === "saving" ? "Saving…" : `Save ${count} change${count === 1 ? "" : "s"}`}
+              {busy === "saving" ? "Saving…" : newTrip ? `Create trip${count > 1 ? ` with ${count - 1} item${count === 2 ? "" : "s"}` : ""}` : `Save ${count} change${count === 1 ? "" : "s"}`}
             </button>
           </div>
         </>

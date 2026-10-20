@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { TripForm } from "./TripForm";
+import { allTimeZones } from "@/lib/time";
+import { importEngine } from "@/server/ai/import";
+import { NewTripChooser } from "./NewTripChooser";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,12 @@ export default async function NewTripPage() {
         <Link href="/" className="text-xs text-muted">← All trips</Link>
         <h1 className="mt-1 text-xl font-semibold">New trip</h1>
       </div>
-      <TripForm defaults={{ originCountry: "DE", homeCurrency: "EUR", homeTimeZone: settings?.homeTimeZone ?? "Europe/Berlin" }} />
+      <NewTripChooser
+        engine={importEngine()}
+        model={process.env.OPENAI_MODEL || "gpt-6.1-sol"}
+        zones={allTimeZones()}
+        formDefaults={{ originCountry: "DE", homeCurrency: "EUR", homeTimeZone: settings?.homeTimeZone ?? "Europe/Berlin" }}
+      />
     </div>
   );
 }

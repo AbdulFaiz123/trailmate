@@ -117,3 +117,13 @@ test("runTripChecks sorts critical first", () => {
   });
   assert.equal(warnings[0].severity, "CRITICAL");
 });
+
+test("arrival at a stay ignores stopovers (Munich -> Dubai -> Goa)", () => {
+  const DXB = "Asia/Dubai";
+  const ek52 = leg({ mode: "FLIGHT", number: "EK 52", toTz: DXB, dep: t("2026-12-05", "15:15"), arr: t("2026-12-05", "23:30", DXB) });
+  const ek532 = leg({ mode: "FLIGHT", number: "EK 532", fromTz: DXB, toTz: HYD, dep: t("2026-12-06", "03:15", DXB), arr: t("2026-12-06", "07:45", HYD) });
+  const hut = stay({ name: "Sea Breeze Huts", tz: HYD, inAt: t("2026-12-06", "15:00", HYD), outAt: t("2026-12-18", "11:00", HYD) });
+  const [w] = checkStayArrivals([hut], [ek52, ek532]);
+  assert.equal(w.type, "EARLY_ARRIVAL");
+  assert.match(w.detail, /You arrive 07:45 IST/, "the Goa landing, not the Dubai stopover");
+});

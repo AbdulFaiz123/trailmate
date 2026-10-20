@@ -10,6 +10,7 @@ import { OpenAIParser } from "../src/server/ai/openai";
 import type { ImportContext } from "../src/server/ai/types";
 
 const ctx: ImportContext = {
+  newTrip: false,
   today: "2026-10-20", tripName: "Demo", origin: "Berlin", destination: "Hyderabad", startDate: "2026-10-27", endDate: "2026-11-10",
   homeTimeZone: "Europe/Berlin", homeCurrency: "EUR", existingLegs: [], existingStays: [], buyList: [], people: ["Mom", "Dad"],
 };
@@ -201,4 +202,63 @@ test("the parser's Buy-item hint links brands the word matcher can't", () => {
 test("person names get a capital", () => {
   const d = sanitizeDraft({ items: [{ list: "BUY", name: "Sweets", quantity: 3, category: null, person: "auntie", price: null, currency: null }] });
   assert.equal(d.items[0].person, "Auntie");
+});
+
+// ---------------------------------------------------------------- new trip from an import
+
+const leg = (p: Record<string, unknown>) => ({
+  mode: "TRAIN", carrier: null, number: null, bookingRef: null, platform: null, seat: null, price: null, currency: null, confidence: "high", ...p,
+});
+const defaults = { homeTimeZone: "Europe/Berlin", homeCurrency: "EUR" };
+
+test("new trip: dates, places and name come from the legs when not said", () => {
+  const d = sanitizeDraft({
+    trip: { name: null, origin: null, destination: null, originCountry: "de", destinationCountry: "IN", startDate: null, endDate: null, homeTimeZone: null, homeCurrency: null },
+    legs: [
+      leg({ number: "ICE 597", fromName: "Berlin Hbf", toName: "Frankfurt (Main) Hbf", departureLocal: "2026-10-27T09:51", arrivalLocal: "2026-10-27T14:05", fromTimeZone: "Europe/Berlin", toTimeZone: "Europe/Berlin" }),
+      leg({ mode: "FLIGHT", number: "LH 752", fromName: "Frankfurt Airport (FRA)", toName: "Hyderabad Airport (HYD)", departureLocal: "2026-10-27T17:30", arrivalLocal: "2026-10-28T07:20", fromTimeZone: "Europe/Berlin", toTimeZone: "Asia/Kolkata" }),
+      leg({ mode: "FLIGHT", number: "LH 753", fromName: "Hyderabad Airport (HYD)", toName: "Frankfurt Airport (FRA)", departureLocal: "2026-11-10T02:35", arrivalLocal: "2026-11-10T08:30", fromTimeZone: "Asia/Kolkata", toTimeZone: "Europe/Berlin" }),
+    ] as never,
+  }, { legKeys: [] }, defaults);
+  assert.equal(d.trip.origin, "Berlin");
+  assert.equal(d.trip.destination, "Hyderabad", "end of the first journey, not the way back");
+  assert.equal(d.trip.name, "Trip to Hyderabad");
+  assert.equal(d.trip.startDate, "2026-10-27");
+  assert.equal(d.trip.endDate, "2026-11-10");
+  assert.equal(d.trip.originCountry, "DE");
+  assert.equal(d.trip.homeTimeZone, "Europe/Berlin");
+  assert.equal(d.trip.homeCurrency, "EUR");
+});
+
+test("new trip: what the traveler said wins over guesses; missing end date is flagged", () => {
+  const d = sanitizeDraft({
+    trip: { name: "Diwali with family", origin: "Munich, Germany", destination: "Mumbai, India", originCountry: "DE", destinationCountry: "IN", startDate: "2026-11-05", endDate: null, homeTimeZone: "Europe/Berlin", homeCurrency: "EUR" },
+  }, { legKeys: [] }, defaults);
+  assert.equal(d.trip.name, "Diwali with family");
+  assert.equal(d.trip.startDate, "2026-11-05");
+  assert.equal(d.trip.endDate, null);
+  assert.ok(d.warnings.some((w) => /When are you back/.test(w)));
+});
+
+test("existing trip: trip details are ignored even if a parser fills them", () => {
+  const d = sanitizeDraft({ trip: { name: "Hijack", origin: "X" } as never });
+  assert.equal(d.trip.name, null);
+});
+
+test("mock: a spoken new trip gives the dates and both legs", () => {
+  const text = DEMOS.newTripVoice(2026);
+  const d = parseTextForTests(text, { ...ctx, newTrip: true, startDate: "2026-10-20" });
+  assert.equal(d.trip.endDate, "2026-11-10", "'back on 10 Nov'");
+  assert.deepEqual(d.legs.map((l) => l.number), ["ICE 597", "LH 752"]);
+  const s = sanitizeDraft(d, { legKeys: [] }, defaults);
+  assert.equal(s.trip.startDate, "2026-10-27");
+  assert.equal(s.trip.destination, "Hyderabad");
+});
+
+test("a stay given only as dates gets 15:00 / 11:00, with a note", () => {
+  const d = sanitizeDraft({ stays: [{ kind: "HOTEL", name: "Sea Breeze Huts", address: "Palolem, Goa", timeZone: null, checkInLocal: "2026-12-06", checkOutLocal: "2026-12-18", latestCheckInLocal: null, bookingRef: null, price: null, currency: null, confidence: "medium" }] });
+  assert.equal(d.stays[0].checkInLocal, "2026-12-06T15:00");
+  assert.equal(d.stays[0].checkOutLocal, "2026-12-18T11:00");
+  assert.equal(d.stays[0].timeZone, "Asia/Kolkata", "Palolem/Goa -> India");
+  assert.ok(d.warnings.some((w) => /assumed 15:00/.test(w)));
 });

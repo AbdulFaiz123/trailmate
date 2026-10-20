@@ -149,8 +149,14 @@ change is skipped if the server already has a newer one (last write wins).
 - **Nothing an AI returns is trusted**: `sanitizeDraft` re-checks every field,
   fills missing zones from place names, and adds warnings; the review screen
   shows them; `applyImport` validates again and saves all-or-nothing.
-- Receipts: `matchPurchases` pairs each line with the best open Buy item by
-  word overlap (case and umlauts folded); the traveler can change any pairing.
+- Receipts: the parser may name the Buy item a line is ("Anti Brumm" → *Mosquito
+  repellent*); otherwise `matchPurchases` pairs lines with open Buy items by word
+  overlap (case and umlauts folded). The traveler can change any pairing.
+- **New trip from an import**: `runImport(null, …)` uses a new-trip prompt and
+  `sanitizeDraft(…, newTripDefaults)` fills the trip details from the legs;
+  `createTripFromImport` validates them with the same `TripInput` schema as the
+  form, creates the trip and reuses `saveImport` (deleting the trip again if a
+  leg fails its checks, so no half-made trips are left behind).
 
 ## 7. Where Phase 2 plugs in
 

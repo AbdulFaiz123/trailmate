@@ -250,7 +250,21 @@ npm run build && npm start
 
 ## Smart import (step 7)
 
-Trip → **✨ Import**. Three ways in:
+**Start a trip by talking or uploading.** *New trip* asks how you want to start:
+
+- 🎤 **Tell me about your trip** — e.g. *"On 5 December I fly Munich → Dubai on EK 52 at 15:15,
+  then EK 532 to Goa at 03:15, staying at Sea Breeze Huts in Palolem until the 18th, back on the
+  19th. Pack sunscreen, buy a gift for Priya."*
+- 📄 **Upload a ticket or booking** — flight/train ticket, hotel booking or itinerary (photo or PDF)
+- ✍️ **Fill in the form** — as before
+
+The review screen then starts with a **Trip card** (name, from/to, countries, dates, home time
+zone and currency). Anything you didn't say is filled from the legs: start = first departure,
+end = last arrival or check-out, destination = where the first journey ends, name = "Trip to …".
+Stays given only as dates get 15:00 check-in / 11:00 check-out (with a note). **Create trip**
+saves the trip with its legs, stays and list items, and keeps the uploaded ticket in Docs.
+
+**Add to an existing trip:** Trip → **✨ Import**. Three ways in:
 
 | Input | What happens |
 | ----- | ------------ |
