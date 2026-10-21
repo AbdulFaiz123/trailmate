@@ -4,6 +4,7 @@ import { allTimeZones } from "@/lib/time";
 import { importEngine } from "@/server/ai/import";
 import { PageHeader } from "@/components/PageHeader";
 import { ImportFlow } from "@/components/import/ImportFlow";
+import { isDemo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
     <div className="space-y-4">
       <PageHeader backHref={`/trips/${id}`} backLabel={trip.name} title="✨ Smart import" />
       <p className="text-sm text-muted">Say it, snap it or paste it: tickets, booking confirmations, shop receipts or a quick voice note. You check everything before it’s saved.</p>
-      <ImportFlow tripId={id} engine={importEngine()} model={process.env.OPENAI_MODEL || "gpt-6.1-sol"} zones={allTimeZones()} openTasks={trip.tasks} />
+      <ImportFlow tripId={id} engine={importEngine()} model={process.env.OPENAI_MODEL || "gpt-6.1-sol"} zones={allTimeZones()} openTasks={trip.tasks} demo={isDemo()} />
     </div>
   );
 }

@@ -1,9 +1,39 @@
 # Trailmate
 
-One home for everything a traveler needs on a trip: stays, legs, packing and
-shopping lists, and live alerts when something goes wrong.
+**A mobile-first travel companion that keeps a whole trip in one place — stays, trains and flights, packing and shopping lists, documents — and tells you what to do when something goes wrong.**
 
-> Status: **Steps 1–7 done** — Phase 1 plus smart import (voice, photo/PDF, receipts). See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
+**[▶ Try the live demo](https://trailmate-demo.onrender.com)** — no sign-up; tap **⏱ Simulate delay** under the ICE.
+<sub>Free hosting: the first visit after a quiet spell takes about a minute to wake up.</sub>
+
+| Live disruption check | Timeline across time zones | Lists & baggage |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/1-disruption.jpg" width="250" alt="ICE 597 is 40 minutes late: the app says the S8 will be missed and suggests the 15:01 S8, which still reaches the flight"> | <img src="docs/screenshots/2-timeline.jpg" width="250" alt="Timeline with the delayed ICE in red, a missed connection, and an overnight flight from CET to IST"> | <img src="docs/screenshots/3-lists.jpg" width="250" alt="Checked and cabin bag weight meters, destination suggestions and a Buy list with gifts per person"> |
+| **Smart import (AI)** | **Start a trip by voice** | **Documents, offline** |
+| <img src="docs/screenshots/4-import-receipt.jpg" width="250" alt="A supermarket receipt matched to Buy-list items with real prices"> | <img src="docs/screenshots/5-new-trip.jpg" width="250" alt="New trip: tell me about your trip, upload a ticket, or fill in the form"> | <img src="docs/screenshots/6-ticket-pdf.jpg" width="250" alt="A sample e-ticket PDF rendered in the app, readable in airplane mode"> |
+
+## What it does
+
+- **One timeline** for legs (train, flight, taxi…) and stays, every time shown in the local zone of its place (`17:30 CET → 07:20⁺¹ IST`).
+- **Trip checks**: nights with nowhere to sleep, double-booked stays, tight or missed connections, arriving after the hotel's latest check-in.
+- **Live disruption check**: when a train is late or cancelled, it works out what breaks and the next way through — *"You will miss the 14:16 S8. Your flight is still reachable via the S8 at 15:01."*
+- **Pack & Buy lists** with gifts per person, a **baggage weight tracker** (including the empty suitcase) and **country rules** for suggestions and customs reminders.
+- **Reminders & push notifications**: buy-by, packing evening, "leave now" (updated with delays), check-in; quiet hours in the zone you're in.
+- **Smart import with AI**: say it, snap it or paste it — a voice note, a ticket PDF, a receipt photo — and review a draft before anything is saved. You can even **create a whole trip by talking**.
+- **Offline-first**: the trip, lists and documents (including PDFs) open in airplane mode; ticks made offline sync later.
+
+## Interesting problems
+
+- **Time zones, done properly.** Every instant is stored in UTC with the IANA zone of its place; forms take the time printed on the ticket. Caught along the way: a form hint showing *today's* offset instead of the trip date's (DST changes mid-trip), and a "you arrive 01:00" that was really a Dubai stopover.
+- **One rule engine for everything.** A delay only changes a leg's effective times; connections, trip checks, "leave now" and the disruption banner all re-derive from that. "Simulate delay" runs the exact same pipeline as a real status change.
+- **Offline on a server-rendered app.** A hand-written service worker (network-first pages, cache-first files) plus a "save this trip" step that also captures scripts loaded on demand (the PDF viewer only worked offline after that). Offline edits go through an idempotent outbox with last-write-wins.
+- **AI you don't have to trust blindly.** OpenAI returns a strict JSON schema; every field is re-checked (time zones, times, duplicates) before the traveler sees it, nothing is saved without review, and a PDF containing *"ignore previous instructions…"* was tested and ignored.
+- **Unreliable data sources.** Every external call has a timeout, a retry and a fallback; the public Deutsche Bahn API failed for days during development and the app kept working on the timetable.
+
+## Tech
+
+**Next.js 15** (App Router, server actions) · **TypeScript** · **Prisma + SQLite** · **Tailwind CSS v4** · **Web Push** · **Service worker / PWA** · **OpenAI** (Responses API with Structured Outputs, `gpt-transcribe`) · **pdf.js** · **zod** · **Docker** · **Render** · **GitHub Actions**
+
+95 unit tests (`npm test`), CI on every pull request (types, lint, tests, build), and changes reviewed through pull requests. Design notes: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Public demo
 
@@ -84,7 +114,7 @@ trips and download your passport copy.
   or the login page itself is never saved over them. Changes ticked offline wait
   in the outbox until you are logged in and online again.
 
-## Folder structure (so far)
+## Folder structure
 
 ```
 tests/

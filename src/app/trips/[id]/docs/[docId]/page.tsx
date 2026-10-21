@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DeleteButton } from "@/components/forms/DeleteButton";
 import { formatBytes } from "@/components/docs/DocList";
 import { modeLabel } from "@/lib/format";
+import { isDemo } from "@/lib/demo";
 import { PdfViewer } from "@/components/docs/PdfViewer";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       <a href={src} target="_blank" rel="noopener" className="block w-full rounded-full border border-accent py-3 text-center text-sm font-semibold text-accent">
         Open full screen
       </a>
-      <DeleteButton action={deleteDocument.bind(null, id, docId)} what="document" />
+      {!isDemo() && <DeleteButton action={deleteDocument.bind(null, id, docId)} what="document" />}
     </div>
   );
 }

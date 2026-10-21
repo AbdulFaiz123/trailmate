@@ -6,6 +6,7 @@ import type { DraftItem, DraftLeg, ImportDraft } from "@/lib/import/draft";
 import { EMPTY_DRAFT } from "@/lib/import/draft";
 import { guessZone } from "@/lib/import/places";
 import { guessCategory } from "@/lib/categorize";
+import { isDemo } from "@/lib/demo";
 import { ImportError, type ImportContext, type ImportInput, type ImportParser } from "./types";
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -121,7 +122,12 @@ export class MockParser implements ImportParser {
 
   async parse(input: ImportInput, ctx: ImportContext): Promise<ImportDraft> {
     if (input.kind === "text") return parseText(input.text, ctx);
-    throw new ImportError("Reading photos and PDFs needs OpenAI: add OPENAI_API_KEY to .env. You can still paste text or try the demo receipt.", 503);
+    throw new ImportError(
+      isDemo()
+        ? "This public demo doesn’t read real files (to keep it free). Try the sample receipt or paste some text."
+        : "Reading photos and PDFs needs OpenAI: add OPENAI_API_KEY to .env. You can still paste text or try the demo receipt.",
+      503,
+    );
   }
 }
 
