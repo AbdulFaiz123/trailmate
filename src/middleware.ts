@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath, safeNext, SESSION_COOKIE, sessionSecret, verifySession } from "@/lib/auth";
+import { isDemo } from "@/lib/demo";
 
 /**
  * Every page and API route needs the session cookie, except the few public
@@ -9,6 +10,8 @@ import { isPublicPath, safeNext, SESSION_COOKIE, sessionSecret, verifySession } 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   if (isPublicPath(pathname)) return NextResponse.next();
+  // The public demo has no private data: no passphrase.
+  if (isDemo()) return NextResponse.next();
 
   const secret = sessionSecret();
   if (!secret) {

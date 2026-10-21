@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDemo } from "@/lib/demo";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createId } from "@paralleldrive/cuid2";
@@ -16,6 +17,7 @@ const Fields = z.object({
 
 /** Upload a document (multipart form). Route handler, not a server action: files can be 15 MB. */
 export async function POST(req: Request) {
+  if (isDemo()) return NextResponse.json({ error: "Uploads are switched off in the demo. The sample documents still open." }, { status: 403 });
   if (declaredTooLarge(req, MAX_UPLOAD_BYTES)) return NextResponse.json({ error: "Files can be up to 15 MB" }, { status: 413 });
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Expected a form upload" }, { status: 400 });

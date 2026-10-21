@@ -268,3 +268,10 @@ test("prompt: the voice button on the Pack list says so", async () => {
   assert.match(instructions({ ...ctx, focusList: "PACK" }), /adding to their Pack list/);
   assert.doesNotMatch(instructions(ctx), /adding to their/);
 });
+
+test("demo mode is only on with DEMO_MODE=1", async () => {
+  const { isDemo } = await import("../src/lib/demo");
+  assert.equal(isDemo({}), false);
+  assert.equal(isDemo({ DEMO_MODE: "0" }), false);
+  assert.equal(isDemo({ DEMO_MODE: "1" }), true);
+});

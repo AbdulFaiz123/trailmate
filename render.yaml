@@ -1,0 +1,25 @@
+# Render blueprint for the free public demo of Trailmate.
+# Render → New → Blueprint → pick this repo. Details: README "Public demo".
+services:
+  - type: web
+    name: trailmate-demo
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      # Public demo: no passphrase, sample data recreated on every start,
+      # uploads off, smart import uses the built-in demos (no AI costs).
+      - key: DEMO_MODE
+        value: "1"
+      - key: IMPORT_MODE
+        value: mock
+      # The public Deutsche Bahn API is unreliable; the demo uses "Simulate delay".
+      - key: DB_REST_MODE
+        value: mock
+      # The free plan has no persistent disk: the database lives in the container.
+      - key: DATABASE_URL
+        value: file:./demo.db
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"

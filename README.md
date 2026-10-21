@@ -5,6 +5,33 @@ shopping lists, and live alerts when something goes wrong.
 
 > Status: **Steps 1–7 done** — Phase 1 plus smart import (voice, photo/PDF, receipts). See [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
 
+## Public demo
+
+A free, public demo runs on [Render](https://render.com) from this repo
+(`render.yaml` + `Dockerfile`). It's a separate, demo-only copy:
+
+- **No passphrase** — anyone can look around.
+- **Sample trip only**, recreated every time the server starts (Berlin → Frankfurt → Hyderabad, departing 7 days from today).
+- **Uploads off**, and smart import uses the **built-in demos**, so it costs nothing.
+- **⏱ Simulate delay** and the pretend-time tools are on — try +40 min on the ICE.
+- The free plan **sleeps after 15 minutes** without visitors; the first visit after that takes about a minute.
+
+### Deploy it yourself (free)
+
+1. Sign in at [render.com](https://render.com) with GitHub and allow access to this repository.
+2. **New → Blueprint**, pick this repo; Render reads `render.yaml` and creates the `trailmate-demo` web service on the free plan.
+3. Wait for the first build (a few minutes). Your demo is at `https://trailmate-demo.onrender.com` (or the URL Render shows).
+4. Every push to `main` redeploys it.
+
+Run the same container locally:
+
+```bash
+docker build -t trailmate-demo .
+docker run -p 3000:10000 -e PORT=10000 -e DEMO_MODE=1 -e IMPORT_MODE=mock -e DB_REST_MODE=mock trailmate-demo
+```
+
+Your own copy (on your laptop, `DEMO_MODE` unset) keeps your trips, the passphrase login and the AI import.
+
 ## Setup
 
 Requires Node 20+.

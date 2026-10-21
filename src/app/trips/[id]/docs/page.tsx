@@ -5,6 +5,7 @@ import { legName } from "@/lib/checks";
 import { modeLabel } from "@/lib/format";
 import { DOCUMENT_KINDS } from "@/lib/types";
 import { ACCEPT } from "@/server/storage";
+import { isDemo } from "@/lib/demo";
 import { TripTabs } from "@/components/TripTabs";
 import { Section } from "@/components/form";
 import { DocList } from "@/components/docs/DocList";
@@ -54,7 +55,11 @@ export default async function DocsPage({ params, searchParams }: {
       ))}
 
       <Section title="Add a document">
-        <UploadForm tripId={trip.id} accept={ACCEPT} attachOptions={attachOptions} defaultAttach={attach && attachOptions.some((o) => o.value === attach) ? attach : "TRIP"} />
+        {isDemo() ? (
+          <p className="text-sm text-muted">Uploads are switched off in this public demo. Open the sample tickets above — they work offline too.</p>
+        ) : (
+          <UploadForm tripId={trip.id} accept={ACCEPT} attachOptions={attachOptions} defaultAttach={attach && attachOptions.some((o) => o.value === attach) ? attach : "TRIP"} />
+        )}
       </Section>
       <p className="text-[11px] text-muted">
         Files are stored on this Trailmate server ({trip.documents.length} file{trip.documents.length === 1 ? "" : "s"}) and saved on your phone for offline use. Passport copies are sensitive — only upload them on a device you trust.
