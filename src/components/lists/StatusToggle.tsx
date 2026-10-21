@@ -41,8 +41,10 @@ export function StatusToggle({ tripId, taskId, list, status }: { tripId: string;
       onClick={async () => {
         const next = nextTaskStatus(list, current);
         setOptimistic(next);
-        enqueue({ kind: "setStatus", tripId, taskId, status: next });
-        if ((await flushOutbox()) > 0) router.refresh(); // update counts and bag weights
+        const opId = enqueue({ kind: "setStatus", tripId, taskId, status: next });
+        const { applied, skipped } = await flushOutbox();
+        if (skipped.includes(opId)) setOptimistic(null); // the server kept its own status
+        if (applied > 0 || skipped.length > 0) router.refresh(); // update counts and bag weights
       }}
       className={`relative flex h-12 w-12 shrink-0 items-center justify-center text-lg ${
         current === "PACKED" ? "" : current === "BOUGHT" ? "font-bold text-accent" : "text-muted"

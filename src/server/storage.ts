@@ -8,6 +8,18 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+/** Room for the multipart boundaries, headers and the small text fields around a file. */
+export const MULTIPART_MARGIN_BYTES = 256 * 1024;
+
+/**
+ * True when the request says up front that it's bigger than a `maxFileBytes`
+ * upload could be, so we can refuse before buffering the body. A missing or
+ * odd Content-Length passes; the per-file size check still runs after parsing.
+ */
+export function declaredTooLarge(req: Request, maxFileBytes: number): boolean {
+  const declared = Number(req.headers.get("content-length"));
+  return Number.isFinite(declared) && declared > maxFileBytes + MULTIPART_MARGIN_BYTES;
+}
 
 /** Types we accept and the bytes each must start with. No SVG/HTML: they can carry scripts. */
 const TYPES: Record<string, { ext: string; magic: (b: Buffer) => boolean }> = {
@@ -19,6 +31,19 @@ const TYPES: Record<string, { ext: string; magic: (b: Buffer) => boolean }> = {
 };
 
 export const ACCEPT = Object.keys(TYPES).join(",");
+
+/**
+ * Images get a policy that blocks everything else. PDFs get only
+ * frame-ancestors: browsers' built-in viewers run inside the PDF's own
+ * document, and a `default-src 'none'` there risks a blank page on "Open full
+ * screen" for no gain. nosniff and a type checked from the bytes keep a PDF
+ * from ever being read as HTML.
+ */
+export function fileCsp(mimeType: string): string {
+  return mimeType === "application/pdf"
+    ? "frame-ancestors 'self'"
+    : "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; frame-ancestors 'self'";
+}
 
 export function storageRoot() {
   return path.resolve(process.cwd(), process.env.STORAGE_DIR || "storage");

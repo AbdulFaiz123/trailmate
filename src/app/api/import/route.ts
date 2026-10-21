@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { runImport, type ImportRequest } from "@/server/ai/import";
 import { ImportError } from "@/server/ai/types";
-import { MAX_UPLOAD_BYTES, detectType } from "@/server/storage";
+import { MAX_UPLOAD_BYTES, declaredTooLarge, detectType } from "@/server/storage";
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // OpenAI's transcription limit
 const AUDIO_TYPES = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/mp3", "audio/m4a", "audio/x-m4a", "audio/wav", "audio/x-wav", "audio/ogg", "video/webm", "video/mp4"];
 
 /** Read a voice message, photo, PDF or pasted text into a draft. Saves nothing. */
 export async function POST(req: Request) {
+  if (declaredTooLarge(req, Math.max(MAX_AUDIO_BYTES, MAX_UPLOAD_BYTES))) {
+    return NextResponse.json({ error: "That's too big — recordings can be up to 25 MB, files up to 15 MB" }, { status: 413 });
+  }
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: "Expected a form" }, { status: 400 });
   // No tripId + newTrip=1: the traveler is creating a trip from this input.

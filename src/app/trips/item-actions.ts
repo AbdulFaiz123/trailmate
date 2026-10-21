@@ -8,6 +8,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { formValues, zodErrors } from "@/lib/form-utils";
 import { fromLocalInput, isValidTimeZone } from "@/lib/time";
 import { LEG_MODES, STAY_KINDS } from "@/lib/types";
 import type { FormState } from "./actions";
@@ -33,16 +34,6 @@ const currency = z
   .optional()
   .refine((v) => !v || /^[A-Z]{3}$/.test(v), "3-letter code, e.g. EUR")
   .transform((v) => v || null);
-
-function formValues(formData: FormData) {
-  return Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
-}
-
-function zodErrors(error: z.ZodError) {
-  const errors: Record<string, string> = {};
-  for (const issue of error.issues) errors[String(issue.path[0])] ??= issue.message;
-  return errors;
-}
 
 // ---------------------------------------------------------------- Legs
 

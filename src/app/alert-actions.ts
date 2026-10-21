@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { formValues, zodErrors } from "@/lib/form-utils";
 import { localToUtc } from "@/lib/time";
 import { runSweep, type SweepResult } from "@/server/scheduler";
 import { demoToolsEnabled, getSettings } from "@/server/settings";
@@ -35,13 +36,9 @@ const SettingsInput = z.object({
 });
 
 export async function saveSettings(_prev: FormState, formData: FormData): Promise<FormState> {
-  const values = Object.fromEntries([...formData.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  const values = formValues(formData);
   const parsed = SettingsInput.safeParse(values);
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) errors[String(issue.path[0])] ??= issue.message;
-    return { errors, values };
-  }
+  if (!parsed.success) return { errors: zodErrors(parsed.error), values };
   if ((parsed.data.quietHoursStart == null) !== (parsed.data.quietHoursEnd == null)) {
     return { errors: { quietHoursEnd: "Set both times, or neither" }, values };
   }
