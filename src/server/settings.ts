@@ -7,5 +7,5 @@ export async function getSettings() {
 
 /** "Pretend time" tools: always on in development, opt-in with DEMO_TOOLS=1 elsewhere. */
 export function demoToolsEnabled() {
-  return process.env.NODE_ENV !== "production" || process.env.DEMO_TOOLS === "1";
+  return process.env.NODE_ENV !== "production" || process.env.DEMO_TOOLS === "1" || process.env.DEMO_MODE === "1";
 }

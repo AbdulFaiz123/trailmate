@@ -23,6 +23,7 @@ const PUBLIC_EXACT = new Set([
   "/icon-512.png",
   "/badge-96.png",
   "/api/cron/sweep",
+  "/api/health",
 ]);
 
 export function isPublicPath(pathname: string): boolean {
