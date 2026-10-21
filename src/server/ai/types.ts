@@ -4,6 +4,8 @@ import type { ImportDraft } from "@/lib/import/draft";
 export type ImportContext = {
   /** true = the traveler is creating a trip from this input (no trip yet). */
   newTrip: boolean;
+  /** The list the traveler is adding to right now (voice button on the Pack/Buy list). */
+  focusList?: "BUY" | "PACK";
   today: string; // YYYY-MM-DD in the traveler's current zone
   tripName: string;
   origin: string;

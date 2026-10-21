@@ -50,7 +50,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unknown import mode" }, { status: 400 });
     }
 
-    return NextResponse.json(await runImport(tripId, request));
+    const list = form.get("list");
+    return NextResponse.json(await runImport(tripId, request, list === "PACK" || list === "BUY" ? list : undefined));
   } catch (e) {
     if (e instanceof ImportError) return NextResponse.json({ error: e.message }, { status: e.status });
     console.error("[import]", e);

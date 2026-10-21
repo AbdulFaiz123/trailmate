@@ -37,7 +37,7 @@ export type ImportRequest =
  * Read an input into a draft. `tripId` = add to that trip; `null` = the
  * traveler is creating a new trip from this input.
  */
-export async function runImport(tripId: string | null, req: ImportRequest): Promise<ImportResult> {
+export async function runImport(tripId: string | null, req: ImportRequest, focusList?: "BUY" | "PACK"): Promise<ImportResult> {
   const now = new Date();
   let ctx: ImportContext;
   let legKeys: string[] = [];
@@ -52,6 +52,7 @@ export async function runImport(tripId: string | null, req: ImportRequest): Prom
     if (!trip) throw new ImportError("Trip not found", 404);
     ctx = {
       newTrip: false,
+      focusList,
       today: localDateKey(now, travelerZone(trip, now)),
       tripName: trip.name, origin: trip.origin, destination: trip.destination,
       startDate: trip.startDate, endDate: trip.endDate, homeTimeZone: trip.homeTimeZone, homeCurrency: trip.homeCurrency,

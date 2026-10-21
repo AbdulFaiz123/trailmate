@@ -262,3 +262,9 @@ test("a stay given only as dates gets 15:00 / 11:00, with a note", () => {
   assert.equal(d.stays[0].timeZone, "Asia/Kolkata", "Palolem/Goa -> India");
   assert.ok(d.warnings.some((w) => /assumed 15:00/.test(w)));
 });
+
+test("prompt: the voice button on the Pack list says so", async () => {
+  const { instructions } = await import("../src/server/ai/prompt");
+  assert.match(instructions({ ...ctx, focusList: "PACK" }), /adding to their Pack list/);
+  assert.doesNotMatch(instructions(ctx), /adding to their/);
+});
