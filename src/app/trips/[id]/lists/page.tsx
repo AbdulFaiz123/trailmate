@@ -12,6 +12,7 @@ import { TaskRow } from "@/components/lists/TaskRow";
 import { SuggestionsCard } from "@/components/lists/SuggestionsCard";
 import { CustomsCard } from "@/components/lists/CustomsCard";
 import { QuickAdd } from "@/components/lists/QuickAdd";
+import { importEngine } from "@/server/ai/import";
 
 export const dynamic = "force-dynamic";
 
@@ -100,7 +101,7 @@ export default async function ListsPage({ params, searchParams }: {
 
       <CustomsCard reminders={customs} />
 
-      <QuickAdd tripId={trip.id} list={list} newHref={`/trips/${trip.id}/lists/new?list=${list}`} />
+      <QuickAdd tripId={trip.id} list={list} newHref={`/trips/${trip.id}/lists/new?list=${list}`} voice={importEngine() === "openai"} />
     </div>
   );
 }

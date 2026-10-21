@@ -13,7 +13,8 @@ export function instructions(ctx: ImportContext): string {
 - Already planned stays: ${ctx.existingStays.join("; ") || "none"}
 - Buy list: ${ctx.buyList.join(", ") || "empty"}
 - People gifts are for: ${ctx.people.join(", ") || "none yet"}
-- Leave every field of "trip" null: the trip already exists.`;
+- Leave every field of "trip" null: the trip already exists.${ctx.focusList ? `
+- The traveler is adding to their ${ctx.focusList === "PACK" ? "Pack list (things they already own)" : "Buy list (things they still need to get)"} right now. Put the things they mention on that list (list "${ctx.focusList}") unless they clearly say otherwise ("I still need to buy…", "pack the…"). Split lists of things into separate items with quantities.` : ""}`;
 
   return `You turn a traveler's booking confirmations, tickets, shop receipts, voice notes and pasted text into structured trip data for the app "Trailmate".
 

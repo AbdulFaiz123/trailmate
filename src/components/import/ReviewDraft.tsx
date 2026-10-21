@@ -10,7 +10,8 @@ export type EditStay = DraftStay & { include: boolean };
 export type EditItem = ImportDraft["items"][number] & { include: boolean };
 export type EditPurchase = { action: "MARK" | "ADD" | "IGNORE"; taskId: string | null; name: string; quantity: number; unitPrice: number | null; currency: string | null };
 
-const input = "w-full min-w-0 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent";
+const box = "rounded-lg border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent";
+const input = `${box} w-full min-w-0`;
 const CONF = { high: "", medium: "text-amber-700 dark:text-amber-400", low: "text-red-600 dark:text-red-400" } as const;
 
 function Card({ include, onToggle, title, badge, children, error }: {
@@ -100,12 +101,12 @@ export function ReviewDraft(props: {
             {items.map((it, i) => (
               <li key={`i${i}`} className="flex items-center gap-2">
                 <input type="checkbox" aria-label={`Add ${it.name}`} checked={it.include} onChange={(e) => upd(items, props.setItems, i, { include: e.target.checked })} className="h-5 w-5 shrink-0" />
-                <select aria-label="List" className={`${input} w-20 shrink-0`} value={it.list} onChange={(e) => upd(items, props.setItems, i, { list: e.target.value as "BUY" | "PACK" })}>
+                <select aria-label="List" className={`${box} w-20 shrink-0`} value={it.list} onChange={(e) => upd(items, props.setItems, i, { list: e.target.value as "BUY" | "PACK" })}>
                   <option value="BUY">Buy</option><option value="PACK">Pack</option>
                 </select>
-                <input aria-label="Quantity" inputMode="numeric" className={`${input} w-12 shrink-0`} value={it.quantity} onChange={(e) => upd(items, props.setItems, i, { quantity: Math.max(1, Number(e.target.value) || 1) })} />
-                <input aria-label="Item" className={input} value={it.name} onChange={(e) => upd(items, props.setItems, i, { name: e.target.value })} />
-                <input aria-label="For" placeholder="for…" className={`${input} w-20 shrink-0`} value={text(it.person)} onChange={(e) => upd(items, props.setItems, i, { person: nul(e.target.value) })} />
+                <input aria-label="Quantity" inputMode="numeric" className={`${box} w-12 shrink-0`} value={it.quantity} onChange={(e) => upd(items, props.setItems, i, { quantity: Math.max(1, Number(e.target.value) || 1) })} />
+                <input aria-label="Item" className={`${box} min-w-0 flex-1`} value={it.name} onChange={(e) => upd(items, props.setItems, i, { name: e.target.value })} />
+                <input aria-label="For" placeholder="for…" className={`${box} w-20 shrink-0`} value={text(it.person)} onChange={(e) => upd(items, props.setItems, i, { person: nul(e.target.value) })} />
               </li>
             ))}
           </ul>
