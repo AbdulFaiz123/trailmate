@@ -56,6 +56,16 @@ async function cacheFirst(cacheName, request) {
   return res;
 }
 
+/**
+ * Only a real page is worth saving: 200 HTML, not a redirect and not the login
+ * page. Otherwise a logged-out visit would overwrite a trip saved for offline.
+ */
+function isSavablePage(res) {
+  if (!res.ok || res.status !== 200 || res.redirected) return false;
+  if (!(res.headers.get("content-type") || "").includes("text/html")) return false;
+  return !res.url || new URL(res.url).pathname !== "/login";
+}
+
 async function networkFirstPage(request) {
   const cache = await caches.open(PAGES);
   const key = pageKey(request.url);
@@ -64,7 +74,7 @@ async function networkFirstPage(request) {
       fetch(request),
       new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NETWORK_TIMEOUT_MS)),
     ]);
-    if (res.ok && (res.headers.get("content-type") || "").includes("text/html")) cache.put(key, res.clone());
+    if (isSavablePage(res)) cache.put(key, res.clone());
     return res;
   } catch {
     return (await cache.match(key, { ignoreVary: true })) || (await cache.match("/offline")) || Response.error();
@@ -97,7 +107,7 @@ self.addEventListener("fetch", (event) => {
 
 async function savePage(url) {
   const res = await fetch(url, { credentials: "same-origin", headers: { accept: "text/html" } });
-  if (!res.ok) return false;
+  if (!isSavablePage(res)) return false;
   const html = await res.clone().text();
   await (await caches.open(PAGES)).put(pageKey(url), res);
   // Keep the scripts and styles this page needs, so it works on its own.

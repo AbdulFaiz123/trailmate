@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Relative to prisma/schema.prisma; created by `prisma migrate deploy` below.
+      DATABASE_URL: file:./ci.db
+      SCHEDULER_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      # Copies the pdf.js worker into public/ (git-ignored).
+      - run: node scripts/copy-pdf-worker.mjs
+
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx eslint src tests prisma
+      - name: Test
+        run: npm test
+
+      - name: Create database
+        run: npx prisma migrate deploy
+      - name: Build
+        run: npm run build

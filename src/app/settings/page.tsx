@@ -7,6 +7,8 @@ import { Section } from "@/components/form";
 import { SettingsForm } from "./SettingsForm";
 import { PushControls } from "./PushControls";
 import { DevTools } from "./DevTools";
+import { logout } from "../login/actions";
+import { sessionSecret } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,11 @@ export default async function SettingsPage() {
           </p>
           <DevTools suggestions={suggestions} />
         </Section>
+      )}
+      {sessionSecret() && (
+        <form action={logout} className="text-center">
+          <button className="text-sm font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400">Log out</button>
+        </form>
       )}
     </div>
   );
