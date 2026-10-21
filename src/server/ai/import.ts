@@ -11,6 +11,7 @@ import { OpenAIParser } from "./openai";
 import { DEMOS, MockParser } from "./mock";
 import { ImportError, type ImportContext, type ImportParser } from "./types";
 import { getSettings } from "../settings";
+import { isDemo } from "@/lib/demo";
 
 export function importEngine(): "openai" | "mock" {
   return process.env.OPENAI_API_KEY && process.env.IMPORT_MODE !== "mock" ? "openai" : "mock";
@@ -91,7 +92,14 @@ export async function runImport(tripId: string | null, req: ImportRequest, focus
       raw = await new MockParser().parse({ kind: "text", text: transcript }, ctx);
     }
   } else if (req.kind === "audio") {
-    if (!p.transcribe) throw new ImportError("Voice messages need OpenAI: add OPENAI_API_KEY to .env. Try the voice demo meanwhile.", 503);
+    if (!p.transcribe) {
+      throw new ImportError(
+        isDemo()
+          ? "This public demo doesn’t transcribe recordings (to keep it free). Try the sample voice note."
+          : "Voice messages need OpenAI: add OPENAI_API_KEY to .env. Try the voice demo meanwhile.",
+        503,
+      );
+    }
     transcript = await p.transcribe(req.bytes, req.mimeType, req.fileName);
     raw = await p.parse({ kind: "text", text: transcript }, ctx);
   } else if (req.kind === "file") {

@@ -15,7 +15,9 @@ type Heard = { transcript: string | null; draft: ImportDraft };
  * or tap 🎤 and say several things at once ("pack sunscreen, two chargers and
  * my passport"); a sheet shows what was heard before anything is added.
  */
-export function QuickAdd({ tripId, list, newHref, voice }: { tripId: string; list: "BUY" | "PACK"; newHref: string; voice: boolean }) {
+export function QuickAdd({ tripId, list, newHref, voice, demo = false }: {
+  tripId: string; list: "BUY" | "PACK"; newHref: string; voice: boolean; demo?: boolean;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [waiting, setWaiting] = useState<string[]>([]);
@@ -44,7 +46,11 @@ export function QuickAdd({ tripId, list, newHref, voice }: { tripId: string; lis
   }, 60);
 
   function onMic() {
-    if (!voice) return setNote("Voice needs OpenAI: add OPENAI_API_KEY to .env. You can still type.");
+    if (!voice) {
+      return setNote(demo
+        ? "Voice is off in this public demo (to keep it free). In the full app you say “pack sunscreen and two chargers” and they’re added."
+        : "Voice needs OpenAI: add OPENAI_API_KEY to .env. You can still type.");
+    }
     if (recorder.state !== "recording" && !navigator.onLine) return setNote("Voice needs a connection. Type instead — that works offline.");
     if (recorder.state === "unsupported") return setNote("This browser can’t record audio.");
     if (recorder.state === "denied") return setNote("Microphone blocked. Allow it in the browser’s site settings.");

@@ -16,8 +16,8 @@ type Tab = "voice" | "file" | "text";
  * `tripId` = add to that trip. `tripId = null` = create a new trip from what
  * the traveler says or uploads (the review screen then starts with a Trip card).
  */
-export function ImportFlow({ tripId, engine, model, zones, openTasks, initialTab = "file" }: {
-  tripId: string | null; engine: "openai" | "mock"; model: string; zones: string[]; openTasks: { id: string; name: string }[]; initialTab?: Tab;
+export function ImportFlow({ tripId, engine, model, zones, openTasks, initialTab = "file", demo = false }: {
+  tripId: string | null; engine: "openai" | "mock"; model: string; zones: string[]; openTasks: { id: string; name: string }[]; initialTab?: Tab; demo?: boolean;
 }) {
   const router = useRouter();
   const newTrip = tripId === null;
@@ -168,7 +168,10 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks, initialTab
                     </label>
                   </>
                 ) : (
-                  <p className="text-sm text-muted">Voice messages need OpenAI to turn speech into text. Add <code className="font-mono">OPENAI_API_KEY</code> to <code className="font-mono">.env</code>.</p>
+                  <p className="text-sm text-muted">
+                    {demo ? "This public demo doesn’t record (to keep it free). Try the sample voice note below — in the full app, OpenAI turns your recording into text."
+                      : <>Voice messages need OpenAI to turn speech into text. Add <code className="font-mono">OPENAI_API_KEY</code> to <code className="font-mono">.env</code>.</>}
+                  </p>
                 )}
                 <button type="button" onClick={() => sendDemo("voice")} className="w-full rounded-full border border-line py-2 text-xs">
                   {newTrip ? "Try a demo: a spoken trip description" : "Try the voice demo (sample transcript)"}
@@ -184,7 +187,12 @@ export function ImportFlow({ tripId, engine, model, zones, openTasks, initialTab
                   <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" disabled={!!busy}
                     onChange={(e) => e.target.files?.[0] && sendFile(e.target.files[0], "file")} />
                 </label>
-                {engine !== "openai" && <p className="text-xs text-muted">Reading photos and PDFs needs <code className="font-mono">OPENAI_API_KEY</code> in <code className="font-mono">.env</code>.</p>}
+                {engine !== "openai" && (
+                  <p className="text-xs text-muted">
+                    {demo ? "This public demo doesn’t read real files (to keep it free) — try the sample receipt. In the full app, OpenAI reads tickets, bookings and receipts."
+                      : <>Reading photos and PDFs needs <code className="font-mono">OPENAI_API_KEY</code> in <code className="font-mono">.env</code>.</>}
+                  </p>
+                )}
                 {!newTrip && <button type="button" onClick={() => sendDemo("receipt")} className="w-full rounded-full border border-line py-2 text-xs">Try the demo receipt</button>}
               </>
             )}

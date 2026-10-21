@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { allTimeZones } from "@/lib/time";
 import { importEngine } from "@/server/ai/import";
 import { NewTripChooser } from "./NewTripChooser";
+import { isDemo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function NewTripPage() {
         engine={importEngine()}
         model={process.env.OPENAI_MODEL || "gpt-6.1-sol"}
         zones={allTimeZones()}
+        demo={isDemo()}
         formDefaults={{ originCountry: "DE", homeCurrency: "EUR", homeTimeZone: settings?.homeTimeZone ?? "Europe/Berlin" }}
       />
     </div>
